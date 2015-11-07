@@ -83,7 +83,7 @@ The key therefore to everything is the URL.  The components in this repository a
 
 The template is a string. We define the structure using a BNF notation
 
-'''
+```
 <template> ::=  <models> | <home model> | <models> <home-model>
 
 <home model> ::= / 
@@ -107,7 +107,7 @@ The template is a string. We define the structure using a BNF notation
 <optional params> ::= <optional param> | <optional param> <optional params>
 
 <optional param> ::= /:<name> 
-'''
+```
 
 What this notation implies is that the template is split up into a series of Models (with a special case for the Home Model and given the special name '/') each of which can have a combination of fixed and optional parameters, provided all the optional parameters follow the fixed ones.
 
