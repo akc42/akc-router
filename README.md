@@ -6,32 +6,84 @@ This repository has one key file, `akc-router.html` which contains an element an
 
 The two components are:-
 
-*  `<akc-router>` which provides routing for children elements.  It will listen to popstate events, and organise to select the approriate element from its children. It will utilise <neon-animated-pages> to achieve this.
+*  `<akc-router>` which provides routing for children elements.  It will listen to popstate events, and organise to select the approriate element from its children. It will utilise `<neon-animated-pages>` to achieve this.
 
-* AKC.Route Is a behaviour that should be added to either a page element that is one of the children of `<akc-router>` or may be added to any element down the heirarchy of elements below the router that will be expected to throw up a modal dialog when activated (by the related url for its route being selected). There are a few instances where a dialog element needs to exist as a direct child of an `<akc-router>`.  In these cases, a `dialog` attribute may be added to the element to force it not to be treated as a page.
+* `AKC.Route` Is a behaviour that should be added to either a page element that is one of the children of `<akc-router>` or added to any element in the heirarchy of elements below the router that manages a modal dialog when activated. 
 
-An important part of the whole concept is how the URL is interpreted. The URL is split into components each of which consist of a *model* name and a number of parameters, all sepaated by a "/" character. A parameter is indicated either by starting it with a ":" character, representing a named parameter, or a ";" character representing an optional named parameter.  Definite parameters must always preceed optional ones.
+An important part of the whole concept is how the URL is interpreted. The URL is split into components each of which consist of a *model* name and a number of parameters, each separated by a "/" character. A parameter is indicated either by starting it with a ":" character, representing a named parameter, or a ";" character representing an optional named parameter.  Definite parameters must always preceed optional ones.
 
-Each element containg the AKC.Route behavior should have a `path` attribute which specifies the model and its parameters.  
+Each element containg the `AKC.Route` behavior should have a `path` attribute which specifies the model and its parameters.  
 
-An element with AKC.Route behavior can have children nested within it which may well also have this behavior. Doing this effectively concatenates the url for the nested elements.  If the `<akc-router>`  element is also included in the nesting, it provides the ability for a page to have sub parts of the page to swap other parts in and out.
+An element with `AKC.Route` behavior may possibly have children nested within it which also have this behavior. Doing this effectively concatenates the url for the nested elements.  If the `<akc-router>`  element is also included in the nesting, it provides the ability for a page to have sub areas of the page to swap different content in and out.
 
 It is important that the top level `<akc-route>` element has the attribute `home` on it so we we know when we have finished concatenating urls.  In the explanations that follow we will refer to this element as the *Home Router*
 
 Routing is not just about pages.  Its possible for a url to represent a dialog.   An element utilising AKC.Route that does not have a direct parent which is an `<akc-router>` will be assumed to be a dialog. When the Home Router hears a route change and this route represents that dialog element it will fire an event at it telling it to open its dialog.
 
+##Examples of use
+
+```
+<body>
+  <akc-router home>
+    <x-page>This is page one</x-page>
+    <x-page>This is page two</x-page>
+    <x-page>
+      <div>Some initial content for page 3</div>
+      <akc-router>
+        <x-page>Sub page 1 to page 3</x-page>
+        <x-page>Sub page 2 to page 3</x-page>
+        <z-page dialog></z-page>
+      </akc-router>
+    </x-page>
+  </akc-router>
+</body>
+```
+
+```
+<dom-module id="x-page">
+  <template>
+    <content></content>
+  </template>
+</dom-module>
+<script>
+    Polymer({
+        is:'x-page',
+        behaviors:['AKC.Route'],
+...
+    });
+```
+
+```
+<dom-module id="z-page">
+  <template>
+    <paper-dialog id="prompt" modal>
+...
+    </paper-dialog>
+  </template>
+</dom-module>
+<script>
+    Polymer({
+        is:'z-page',
+        behaviors:['AKC.Route'],
+        _openDialog:function() {
+            this.$.prompt.open();
+        }
+...
+    });
+```
 ##More on URLs
 
 It is expected that the akc-router components that are discussed in this document will be used in a Single Page Application, where the majority of the application is loaded through the loading of a single url with the browser or the application fetching the rest via background requests.  It would be possible to forget entirely about URLs, and they would never need to change.
 
 However, as is well recognised, this is not ideal from a user perspective.  They see what appears to be page changes as a result of clicking (or swiping or tapping or keyboard input) and have an expectation that the browser back button will work.  Also it may be useful to pass a URL to a colleague who enters it and gets to the same place. To support this is what these elements are all about.
 
-The key therefore to everything is the URL.  These components in this repository and for interpreting the url and performing actions when it changes.  To that extend we make some assumptions about the form of the URLs that we are going to receive, specify a "template" for them, and then interpret the URLs as actually received against the template, in order to determine what to do.  So lets define the structure of the template first, and then define how we map a given url on to that template.
+The key therefore to everything is the URL.  The components in this repository are responsible for interpreting the url and performing actions when it changes.  To that end we make some assumptions about the form of the URLs that we are going to receive, specify a "template" for them, and then interpret the URLs as actually received against the template, in order to determine what to do.  So lets define the structure of the template first, and then define how we map a given url on to that template.
 
 ###The Structure of the URL template
 
 The template is a string. We define the structure using a BNF notation
 
+'''
 <template> ::=  <models> | <home model> | <models> <home-model>
 
 <home model> ::= / 
@@ -55,6 +107,7 @@ The template is a string. We define the structure using a BNF notation
 <optional params> ::= <optional param> | <optional param> <optional params>
 
 <optional param> ::= /:<name> 
+'''
 
 What this notation implies is that the template is split up into a series of Models (with a special case for the Home Model and given the special name '/') each of which can have a combination of fixed and optional parameters, provided all the optional parameters follow the fixed ones.
 
