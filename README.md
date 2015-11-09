@@ -179,7 +179,7 @@ It analyses its path attribute and generates part of a regular expression to mat
 
 In addition it scans a "RouteList" of items being prepared but not yet consolidated, looking for elements that are descendants (in the distributed nodes).  If it finds any, it removes them from the RouteList and adds them as a hashed list of children, adding the `index` field as it goes. If it finds more than one with the same name it outputs a warning to the console, but adds them anyway as an Array of entries under that particular name.
 
-As it adds children to its own entry, it also expands the `Regexp` field, so as to add a new group with an option for each of the children (other than a "home" entry).  I home entry then causes a * to follow the group, otherwise it is left off.
+As it adds children to its own entry, it also expands the `Regexp` field, so as to add a new group with an option for each of the children (other than a "home" entry).  I home entry then causes a ? to follow the group, otherwise it is left off.
 
 Finally, it adds itself back into the RouteList so that higher up elements will be able to find it.
 
