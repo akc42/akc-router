@@ -1,27 +1,30 @@
 {
-  "name": "akc-meta",
+
+  "name": "akc-router",
   "version": "1.0.3",
   "authors": [
     "Alan Chandler <alan@chandlerfamily.org.uk>"
   ],
-  "description": "An experiment in creating an element that keeps copies",
+  "description": "Two elements and a behavior providing routing capability",
   "keywords": [
     "web-component",
     "polymer",
-    "seed"
+    "routing"
   ],
-  "main": "akc-meta.html",
-  "license": "http://akc42.github.io/LICENSE.txt",
-  "homepage": "https://github.com/akc42/akc-meta/",
+  "main": "akc-router.html",
+  "license": "GPL",
+  "homepage": "https://github.com/akc42/akc-router/",
   "ignore": [
     "/.*",
     "/test/"
   ],
   "dependencies": {
-    "polymer": "Polymer/polymer#^1.1.0"
+    "polymer": "Polymer/polymer#^1.1.0",
+    "iron-component-page": "PolymerElements/iron-component-page#^1.0.0"
   },
   "devDependencies": {
-    "iron-component-page": "PolymerElements/iron-component-page#^1.0.0",
-    "web-component-tester": "*"
+    "iron-pages": "PolymerElements/iron-pages#^1.0.0",
+    "web-component-tester": "*",
+    "test-fixture": "PolymerElements/test-fixture#~1.0.0"
   }
 }

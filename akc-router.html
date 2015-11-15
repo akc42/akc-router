@@ -1,0 +1,350 @@
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<!--
+@licence
+    Copyright (c) 2015 Alan Chandler, all rights reserved
+
+    This file is part of akc-router.
+
+    akc-router is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    akc-router is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with akc-router.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+
+-->
+<script>
+
+(function(){
+
+
+var router = false;
+
+Polymer({
+
+  is: 'akc-router',
+
+  properties: {
+
+    /**
+     * `base` Provides the base URL which all other URL's in this system are relative too.
+     *
+     *  This parameter is so that the application can sit at a subdirectory.
+     */
+    base: {
+      type:String,
+      value:''
+    },
+    /**
+    * `404` defines which page (relative to base) should be used if a URL handled by this app
+    * does not map a valid one
+    */
+    404:{
+      type:String,
+      value:'/404.html'
+    },
+
+    /**
+     * gives the current url that this router is managing
+     * .
+     */
+     url: {
+      type: String,
+      value:'/',
+      notify:true
+     },
+    /**
+     * `selected` is the index amongst the top level routing elements that are currently selected as a result of this url
+     * .
+     *
+     */
+    selected: {
+      type:Number,
+      value:0,
+      notify:true
+    },
+  },
+  listeners:{
+    'popstate':'_popstateHandler',
+    'akc-route-change':'_routeChangeHandler'
+  },
+  created: function() {
+    this.statePromise = new Promise(function(resolve,reject){
+      this.statusResolver = resolve;
+      this.statusRejector = reject;
+    }.bind(this));
+
+  },
+  attached: function(){
+    var regex = '^';
+    if(router) {
+      this.isActive = false;
+      this.remove();
+    } else {
+      router = true; //mark router as established
+      this.isActive = true;
+      this.model = [];
+      this.selectors = [];
+      this.async(function(){
+        var app = Polymer.dom(this).parentNode
+        var pathMatcher = new RegExp(/^((\/)|(\/?(\w+)((\/\+\w+)+)?((\/-\w+)+)?(\/(:?\w+)(:\w+)*)?))$/i)
+        var HOME_PATH = 2;
+        var PATH_NAME = 4;
+        var FIXED_PARAMS = 5;
+        var VARIABLE_PARAMS = 7;
+        var ACTION_NAME = 10;
+
+        var descend = function(node,model) {
+          var modelNode;
+          var children = Polymer.dom(node).getEffectiveChildNodes()
+          if (children.length > 0) {
+            children.forEach(function(child){
+              if(child.is === 'akc-route-selector') {
+                modelNode = {name:'',element:child,children[],isHome:false,isSelector:true,isDialog:false};
+                model.push(modelNode);
+                descend(child,modelNode.children);
+              } else {
+                if(child.behaviors && child.behaviors.some(function(behaviour){return behaviour === AKC.Route})) {
+                  modelNode = {name:'',element:child,children:[],isHome:false,isSelector:false,isDialog:child.dialog};
+                  model.push(modelNode);
+                  descend(child,modelNode.children);
+                } else {
+                  descend(child,model);
+                }
+              }
+            },this);
+          }
+        }.bind(this);
+
+        var parseLevel = function(model,name) {
+          var homeFound = false;
+          var nonSelector = false;
+          if (model.length > 0){
+            if (name == '/') {
+              //special starting condition
+              regex += '\\/(?:'
+            } else {
+              //normal starting condition
+              regex += '(?:\\/';
+            }
+            //We need to do all nodes in two passes - selectors first
+            model.forEach(function(node){
+              if(node.isSelector) {
+                node.name = name;
+                parseLevel(node.children,[name,'*/'].join('/'));
+              }
+            },this);
+            //followed by the rest
+            model.forEach(function(node){
+              if(!node.isSelector) {
+                nonSelector = true;
+                if(pathMatcher.test(node.element.path)) {
+                  node.params = []; //We have a valid node, so we might as well initialise the params array
+                  var matches = pathMatcher.exec(node.element.path);
+                  if(typeof matches[HOME_PATH] === 'undefined') {
+                    if(model.some(function(m){return (!m.isSelector && !m.isHome && m.name === matches[PATH_NAME])})) {
+                      throw new Error('There are two nodes with the same name: ' + name + '/' + matches[PATH_NAME]);
+                    }
+                    node.name = matches[PATH_NAME];
+                    node.element.route =[name,node.name].join('/');  //tell elements its complete route.  It will use this when responding
+                    regex += ['(',matches[PATH_NAME],')'].join('');
+                    if(typeof matches[FIXED_PARAMS] !== 'undefined') {
+                      matches[FIXED_PARAMS].substring(2).split('/+').forEach(function(param){node.params.push(param);});
+                    }
+                    node.fixed = node.params.length;
+                    if(typeof matches[VARIABLE_PARAMS] !== 'undefined') {
+                      matches[VARIABLE_PARAMS].substring(2).split('/-').forEach(function(param){node.params.push(param);});
+                    }
+                    if(node.params.length > 0) {
+                      regex += '((?:\\/(?:\\w+))'
+                      if(node.fixed !== 1 || node.params.length !== 1){
+                        //not exactly one param expected, so we are going to have to add a suffix
+                        if(node.fixed == 0 && node.params.length = 1) {
+                          regex += '?'
+                        } else {
+                          if(node.fixed == node.params.length) {
+                          regex += ['{', node.fixed,'}'].join('');
+                          } else {
+                            regex += ['{', node.fixed,',', node.params.length,'}?'].join(''); //last ? makes it a lazy match
+                          }
+                        }
+                      }
+                      regex += ')';  //We need to capture params in a match
+                    }
+                    if(typeof matches[ACTION_NAME] !== 'undefined') {
+                      var actions;
+                      node.hasNullAction = false; //We need to record this so we can bear it in mind when parsing URL
+                      if(actions = matches[ACTION_NAME].split(':').some(function(a){if(a.length === 0) node.hasNullAction = true; return a.length > 0;},this)) {
+                        node.actions = [];
+                        regex += '('; //capture the action in a match
+                        actions.forEach(function(action){
+                          regex += action;
+                          regex+= '|';
+                          node.actions.push[action];
+                        },this);
+                        regex = regex.slice(0,-1);
+                        regex += [')', nullAction?'??':''].join(''); //lazy match if optional (ie we will prefer a subsequent model)
+
+                      }
+                    } else {
+                      node.hasNullAction = true;
+                    }
+                    parseLevel(node.children,node.element.route);
+
+                  } else {
+                    //before we can be sure we can mark this node as the home node, we need to check we haven't already set another node
+                    if(model.some(function(m){return m.isHome;})) {
+                      throw new Error('Two home nodes at the same level');
+                    }
+                    homeFound = true; //we mark this instead of
+                    node.name = name;
+                    node.isHome = true;
+                    node.fixed = 0;
+                    node.params = [];
+                    if (node.children.length > 0) {
+                      throw new Error(['Home node has ',node.children.length,' child',(node.children.length == 1)?'':'ren'].join(''));
+                    }
+                  }
+
+                } else {
+                  throw new Error(node.element.path + ' is an invalid path');
+                }
+              }
+              regex += '|';
+            },this);
+
+            if (nonSelector) {
+              regex = regex.slice(0,-1); //remove the last '|' added OR if homeFound and only element the previous '(
+              if(model.length == 1 && homeFound) {
+                regex = regex.splice(0,-4);  //now removing the rest we have added this level (original literal had two '\\', but only one was stored the other was an escape marker)
+              } else {
+                regex += ')';
+                if(homeFound) regex += '?';
+              }
+            }
+          }
+        }.bind(this);
+        try {
+          //Step 1, get a tree of Routable nodes.
+          descend(app,this.model);
+          //Step 2, parse each node and build a regex string to parse urls
+          var initialName = '';
+          if(this.base.length > 0){
+            regex += '\\'
+            if(this.base.charAt(0) !== '/') {
+              initialName += '/';
+              regex += '/'
+            }
+            initialName += this.base;
+            regex += this.base
+          }
+          initialName += '/';
+          parseLevel(this.model,initialName);
+          if (this.model.length <= 0) {
+            throw new Error('No Routing Nodes');
+          }
+          //Step 3 set up a listener for routeSave.
+          Polymer.dom(this).parentNode().addEventListener('akc-route-save',function(e){
+            history.replaceState(e.detail,document.title,this.url);
+          }.bind(this));
+          //Step 4 get the collected regex string and make an actual regex with it.
+          regex += '$'; //Ensure we don't match only the beginning of a URL
+          this.regex = new RegExp(regex);
+          //Step 5 Dispatch the URL (removing the file portion)
+          this_dispatchUrl(window.location.pathname, false);
+
+          this.statusResolver(regex);
+        } catch (error) {
+          this.statusRejector(error);
+        }
+      });
+    }
+  },
+  detached:function() {
+    if(this.isActive) router = false;
+  },
+  domOK: function() {
+    return this.statePromise;
+  },
+  _dispatchUrl:function(url,state) {
+    var route = '';
+    function parseModel(model,matches,state) {
+        var event;
+        //Step1 - see if we have a match
+        if( model.some(function(node){
+          if(matches[0] == node.name) {
+            matches.shift();
+            if(node.params.length > 0) {
+              if(matches.length > 0) {
+                var params = matches.shift().spilt('/');
+                params.shift(); //looses the null as a result of first '/'
+                event.
+
+              } else {
+                throw new Error(['regex /',this.regex.toString(),'/ url =',this.url].join(''));
+              }
+            }
+
+
+            return true;
+          }
+          return false;
+        })) {
+
+        } else {
+          if()
+        }
+
+      }
+
+//TODO
+    };
+    var urlMatches,matches;
+    If(urlMatches = /^(\/(?:[^.]*[^/.]))(\/[^/]*?)?$/.exec(url)) {
+      this.url = urlMatches[1];//strip filename portion (but fails on "/index.html");
+    } else {
+      this.url = '/'
+    }
+    if(this.regex.test(this.url)) { //check it was one we can recognise
+      if(!state) {
+        history.pushState({},document.title,url); //push unless from popstate.
+      }
+      matches = this.regex.exec(this.url);
+      matches.shift();  //not interested in the first one as its just the url
+      parseModel(this.model,matches,state);
+    } else {
+      this.fire('akc-route-404',url)
+    }
+
+  },
+  _routeChangeHandler:function(e) {
+    this._dispatchUrl(e.detail,false);
+  },
+  _popstateHandler:function(e) {
+    this._dispatchUrl(window.location.pathname,e.state);
+  }
+});
+
+})();
+
+</script>
