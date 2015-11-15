@@ -1,0 +1,28 @@
+{
+  "name": "akc-router",
+  "version": "1.0.3",
+  "authors": [
+    "Alan Chandler <alan@chandlerfamily.org.uk>"
+  ],
+  "description": "Two elements and a behavior providing routing capability",
+  "keywords": [
+    "web-component",
+    "polymer",
+    "routing"
+  ],
+  "main": "akc-router.html",
+  "license": "GPL",
+  "homepage": "https://github.com/akc42/akc-router/",
+  "ignore": [
+    "/.*",
+    "/test/"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#^1.1.0"
+  },
+  "devDependencies": {
+    "iron-pages": "PolymerElements/iron-pages#^1.0.0",
+    "web-component-tester": "*",
+    "test-fixture": "PolymerElements/test-fixture#~1.0.0"
+  }
+}

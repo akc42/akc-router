@@ -1,0 +1,132 @@
+<!--
+@licence
+    Copyright (c) 2015 Alan Chandler, all rights reserved
+
+    This file is part of akc-router.
+
+    akc-router is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    akc-router is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with akc-router.  If not, see <http://www.gnu.org/licenses/>.
+-->
+<!--
+
+`AKC.Route` is a behavior that works in conjuction with a `<akc-router>` web component, and possibly some `<akc-route-selector>` components.  It is added to two types of web component:-
+
+1. Those that designed to sit (once the cpomponent have been stamped out into the DOM) as direct children of an `<iron-pages>` (or derivative) element, or
+2. A component controlling a modal dialog.
+
+The behavior defines a `path` property which should be configured on the element to specify which URLs it will respond to. It should be statically defined because it is only analysed once.
+
+Each portion of the URL is called a **model** and consists of a *name* and a number of values acting as parameters to the model separated with the "/".  Actually there is one other special type of `model` which has the name "/".  This may not have any parameters, or children elements with an `AKC.Route` behavior. It is only needed if there is a need to sit alongside sibling `AKC.Route` elements, but still have something to display when the URL is missing the model portion of the others.
+
+This `path` attribute should contain a pattern which consists of a series of segments separated by the "/" character (The initial "/" character is optional, except of course the when it the only character). The first segment is the "name" of the model. Following the name can be zero or more segments which start with a "+" character. Each one of those specifies a *definite* parameter, with the remainder of the segment being the name of that parameter. Following definite parameters are zero or more *optional* ones.  These are specified in a similar way, except that the "-" character is used instead of the plus. Finally, optionally, there may be an action list.  This is a set of names separated by ":" characters.
+
+Because of the way the URL to model matching mechanism has to work, there are some constraints on model and action names.
+* Model names are case insensitive. We recommend only using lowercase characters and avoiding using the '-' character within them.
+* The model name will always be matched in preference to an optional parameter value in a url (assuming no action names) and so should be chosen such that it is unlikely to clash.  For example, a model pattern '/user/+uid/-country' means it would be extremely unwise to have a model name of 'france' that might follow it.
+* An action name will always be matched in preference to an optional parameter value in a url, For example it would not be a good idea to have a model pattern '/user/+uid/-sport/fight:stop'
+* To support multiple areas of the screen, the models that match them can come in any order in the url. But this is regarded as an unusual use case. So the matching algorithm will favour a child model over a sibling, and will favour a sibling over an element which is the sibling of the parent.  So use with caution. For example the URL '/user/5/edit' will match a 'user' model with a sub model of 'edit' over a pair of areas with 'user' and 'edit' capability.
+
+When the element containing this behavior is selected, it will expose the actual values of its parameters in a `parameters` property. This property will be an Object which contains keys based on the names of the parameters. Only the keys representing paramters that are actually present in the URL will be present in the properties object.
+It will expose an `action` property with a string value of the option used, unless there is no specification, when the `action` property will be the empty string.
+
+The behaviour also defines a read/write `state` Object property with a notify:true flag and a `replay` Boolean readOnly property, also with the notify:true flag.  If the URL is being switched to as a result of the initial start up to this URL, or as a result of being switched to from another part of the application, the  `replay` property will be false, and the state object will be invalid. If the user switches to the URL through the back or forward button on the browser, any previously saved state will be presented on the `state` property and the `replay` property will be true. If the state property is changed. it will replace any state already saved (using `history.replaceState()`), so should be reflected back on the next replay.
+
+Finally, when this element is selected as a result of a URL change, an abstract function "_routeSelected()" is called. The host element should implement this function and return false if it doesn't intend to update state state in the near future, and true if it does. (it doesn't have to wait for the state to actually change, its just an indication that it expects to change shortly.)
+
+-->
+
+
+
+<script>
+window.AKC = window.AKC||{};
+
+AKC.Route = {
+    properties: {
+      path: String,
+      parameters : {
+        type: Object,
+        value:{},
+        notify:true
+      },
+      state: {
+        type:Object,
+        value:{},
+        notify:true
+      },
+      action: {
+        type:String,
+        value:'',
+        notify:true
+      },
+      route:String,
+      dialog:{
+        type:Boolean,
+        value:false
+      }
+    },
+    listeners:{'akc-route-selected':'_routeSelected'},
+    _routeSelected(e) {
+        //remember this event is going to all elements on route.
+        if (e.detail.replay) {
+            this.state = e.detail.state[this.route];
+        }
+
+        for(var i = 0; i < model.values.length; i++) {
+            this.params[model.params[this.route][i]] = model.values[i];
+        }
+        this.action = model.action;
+        if (e.detail.replay) {
+            this._replayURL();
+            return;
+        }
+        var save = new Promise(function(resolve,reject){
+            if(e.target == this){
+                resolve({});  //a new save is not coming, so we resolve immediately
+            } else {
+                this.addEventListener('akc-route-save',function(e){
+                    e.preventDefault(); //stop it propagating
+                    resolve(e.detail);
+                });
+            }
+        }.bind(this));
+
+        var sequence = new Promise(function(resolve,reject){
+            this._routeChange(resolve,reject);
+        }.bind(this));
+        sequence.then(function(state){
+            this.state = state; //we don't need to wait for the other states - so jump in here
+            return state;
+        });
+        Promise.all(save,sequence).then(function(states){
+            var state = states[0];
+            state[this.route] = states[1];//merge states
+            this.fire('akc-route-save',state);
+        }.bind(this)).catch(function(url){
+            this.fire('akc-route-change',url);
+        }.bind(this));
+
+
+    },
+    _routeChange:function(resolve,reject) {
+        //Abstract
+        resolve(this.state);
+    },
+    _replayURL:function() {
+        //Abstract
+    }
+
+
+}
+
+
+</script>
