@@ -1,12 +1,4 @@
-<!--
-@license
-Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
-This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
-The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
-The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
-Code distributed by Google as part of the polymer project is also
-subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
--->
+
 <!--
 @licence
     Copyright (c) 2015 Alan Chandler, all rights reserved
@@ -30,9 +22,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
 <link rel="import" href="../polymer/polymer.html">
 
-<!--
-
--->
 <script>
 
 (function(){
@@ -107,12 +96,12 @@ Polymer({
       this.selectors = [];
       this.async(function(){
         var app = Polymer.dom(this).parentNode
-        var pathMatcher = new RegExp(/^((\/)|(\/?(\w+)((\/\+\w+)+)?((\/-\w+)+)?(\/(:?\w+)(:\w+)*)?))$/i)
-        var HOME_PATH = 2;
-        var PATH_NAME = 4;
-        var FIXED_PARAMS = 5;
-        var VARIABLE_PARAMS = 7;
-        var ACTION_NAME = 10;
+        var pathMatcher = new RegExp(/^(?:(\/)|(?:\/?(\w+)((?:\/\+[ds])+)?((?:\/-[ds])+)?(?:\/((?::?\w+)(?::\w+))*)?))$/i)
+        var HOME_PATH = 1;
+        var PATH_NAME = 2;
+        var FIXED_PARAMS = 3;
+        var VARIABLE_PARAMS = 4;
+        var ACTION_NAME = 5;
 
         var descend = function(node,model) {
           var modelNode;
@@ -169,27 +158,17 @@ Polymer({
                     node.element.route =[name,node.name].join('/');  //tell elements its complete route.  It will use this when responding
                     regex += ['(',matches[PATH_NAME],')'].join('');
                     if(typeof matches[FIXED_PARAMS] !== 'undefined') {
-                      matches[FIXED_PARAMS].substring(2).split('/+').forEach(function(param){node.params.push(param);});
+                      matches[FIXED_PARAMS].substring(2).split('/+').forEach(function(param){
+                        regex += ['(?:\\/(\\',(param == 'd')?'d':'w','+)'].join('');
+                        node.params.push(param == 'd');
+                      });
                     }
                     node.fixed = node.params.length;
                     if(typeof matches[VARIABLE_PARAMS] !== 'undefined') {
-                      matches[VARIABLE_PARAMS].substring(2).split('/-').forEach(function(param){node.params.push(param);});
-                    }
-                    if(node.params.length > 0) {
-                      regex += '((?:\\/(?:\\w+))'
-                      if(node.fixed !== 1 || node.params.length !== 1){
-                        //not exactly one param expected, so we are going to have to add a suffix
-                        if(node.fixed == 0 && node.params.length = 1) {
-                          regex += '?'
-                        } else {
-                          if(node.fixed == node.params.length) {
-                          regex += ['{', node.fixed,'}'].join('');
-                          } else {
-                            regex += ['{', node.fixed,',', node.params.length,'}?'].join(''); //last ? makes it a lazy match
-                          }
-                        }
-                      }
-                      regex += ')';  //We need to capture params in a match
+                      matches[VARIABLE_PARAMS].substring(2).split('/-').forEach(function(param){
+                        regex += ['(?:\\/(\\',(param == 'd')?'d':'w','+))?',(param == 's')?'?':''].join(''); //make these lazy if string
+                        node.params.push(param == 'd');
+                      });
                     }
                     if(typeof matches[ACTION_NAME] !== 'undefined') {
                       var actions;
@@ -202,7 +181,7 @@ Polymer({
                           regex+= '|';
                           node.actions.push[action];
                         },this);
-                        regex = regex.slice(0,-1);
+                        regex = regex.slice(0,-1); //remove last '|'
                         regex += [')', nullAction?'??':''].join(''); //lazy match if optional (ie we will prefer a subsequent model)
 
                       }
@@ -288,37 +267,75 @@ Polymer({
   },
   _dispatchUrl:function(url,state) {
     var route = '';
-    function parseModel(model,matches,state) {
-        var event;
-        //Step1 - see if we have a match
-        if( model.some(function(node){
-          if(matches[0] == node.name) {
+    var event = {};
+    function parseModel(model,matches) {
+      //Step1 - see if are any selectors
+      mode.forEach(function(node){
+        if(node.isSelector) {
+          parseModel(model,matches,state);
+        }
+      });
+      //Step2
+      if (matches.length > 0) {
+        //Step3 - see if we have a match
+        model.forEach(function(node) {
+          if(!(node.isSelector || node.isHome) && matches[0] == node.name) {
+            route = [route,node.name].join('/')
             matches.shift();
             if(node.params.length > 0) {
-              if(matches.length > 0) {
-                var params = matches.shift().spilt('/');
-                params.shift(); //looses the null as a result of first '/'
-                event.
-
+              if(matches.length >= nodes.params.length) {
+                event.params[node.element.route] = [];
+                node.params.forEach(function(param){
+                  event.params[node.element.route].push(matches[0]);
+                  matches.shift();
+                });
               } else {
-                throw new Error(['regex /',this.regex.toString(),'/ url =',this.url].join(''));
+                throw new Error(['Insufficient Parameter Matches regex /',this.regex.toString(),'/ url =',this.url].join(''));
               }
             }
-
-
+            if(node.actions.length > 0) {
+              if(matches.length > 0) {
+                if(!node.actions.some(function(action){
+                  if(action == matches[0]) {
+                    matches.shift()
+                    event.actions[node.element.route] = action;
+                    return true
+                  }
+                  return false;
+                })) {
+                  if (!node.nullAction) {
+                    throw new Error('Insufficient Action Matches')
+                  }
+                  matches.shift();
+                }
+              }
+            }
+            if(node.children.length > 0) {
+              if(matches.length > 0) {
+                parseModel(node.children,matches)
+              } else {
+                throw new Error('No Matches left for children');
+              }
+            } else {
+              if(matches.length > 0){
+                throw new Error('Too many matches for this model');
+              }
+              node.element.fire('akc-route-change',event);
+            }
+          }
+        };
+      } else {
+        if(!model.some(function(node){
+          if(node.isHome) {
+            node.element.fire('akc-route-change',event);
             return true;
           }
           return false;
         })) {
-
-        } else {
-          if()
+          throw new Error('URL is too short');
         }
-
       }
-
-//TODO
-    };
+    });
     var urlMatches,matches;
     If(urlMatches = /^(\/(?:[^.]*[^/.]))(\/[^/]*?)?$/.exec(url)) {
       this.url = urlMatches[1];//strip filename portion (but fails on "/index.html");
@@ -328,10 +345,14 @@ Polymer({
     if(this.regex.test(this.url)) { //check it was one we can recognise
       if(!state) {
         history.pushState({},document.title,url); //push unless from popstate.
+        event.replay = false;
+      } else {
+        event.replay = true;
+        event.state = state;
       }
       matches = this.regex.exec(this.url);
       matches.shift();  //not interested in the first one as its just the url
-      parseModel(this.model,matches,state);
+      parseModel(this.model,matches);
     } else {
       this.fire('akc-route-404',url)
     }

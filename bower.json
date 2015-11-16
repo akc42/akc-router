@@ -1,4 +1,5 @@
 {
+
   "name": "akc-router",
   "version": "1.0.3",
   "authors": [
@@ -18,7 +19,8 @@
     "/test/"
   ],
   "dependencies": {
-    "polymer": "Polymer/polymer#^1.1.0"
+    "polymer": "Polymer/polymer#^1.1.0",
+    "iron-component-page": "PolymerElements/iron-component-page#^1.0.0"
   },
   "devDependencies": {
     "iron-pages": "PolymerElements/iron-pages#^1.0.0",

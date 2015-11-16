@@ -1,0 +1,157 @@
+<!--
+@license
+    Copyright (c) 2015 Alan Chandler, all rights reserved
+
+    This file is part of akc-meta.
+
+    akc-meta is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    akc-meta is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with akc-meta.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+
+
+
+<script>
+/*
+* An pair of element for sharing data across the dom tree.  Modelled on what I thought <iron-meta> was and doesn't seem to be
+* In particular, any value changes on the publisher of the element will be notified to all queries with the same key
+*
+*
+*  Example:
+*
+*      <akc-meta key="abc" value="[[inputvalue]]"></akc-meta>
+*     <akc-meta-query key="abc" value="{{outputvalue}}"></akc-meta-query>
+*
+*  @group Alan Chandler's Elements
+*  @element akc-meta
+*  @demo demo/index.html
+*  @hero hero.svg
+*/
+(function(){
+
+var queries = {};
+
+var values = {};
+
+  Polymer({
+
+    is: 'akc-meta',
+
+    properties: {
+
+      /**
+       * `key` is a string to identify the data that is being stored and replicated
+       *
+       */
+      key: {
+        type:String,
+        observer:'_keyChanged',
+        value:'default'
+
+      /**
+       * This is a value that will be replicated to all elements.
+       * @type Object
+       *
+       */
+      value: {
+        type: Object,
+        observer:'_valueChanged',
+        value:{}
+      },
+
+    },
+    attached:function() {
+      this._valueChanged(this.value);
+    }
+    detached:function() {
+      this._unregister(this.key);
+    },
+    /**
+     * This routine is called  when the value changes and 
+     *
+     * @param {} value The new value .
+     */
+    _valueChanged: function(value) {
+      var self = this;
+      values[this.key] = value
+      queries[this.key].each(function(item){
+        item._setValue(values[self.key]);  //set the value of every item referenced
+      });
+    },
+    _keyChanged:function(oldKey,newKey) {
+      this._unregister(oldKey);
+      this._valueChanged(this.value);  //This just informs all the others
+    },
+    _unregister:function(key) {
+      var foundElement = false;
+      queries[key].each(function(item){
+        foundElement = true;
+        item._setValue({});  //set the value of every item referenced
+      });
+      if(foundElement) {
+        values[key] = {};
+      } else {
+        delete values[key];
+      }
+
+    }
+  });
+  Polymer({
+    is: 'akc-meta-query',
+
+    properties: {
+      key: {
+        type:String,
+        observer:'_keyChanged',
+        value:'default'
+      },
+      value: {
+        type:Object,
+        notify:true,
+        readOnly:true,
+        value:{}
+      }
+    },
+    attached: function() {
+      this._registerElement(this.key);
+    },
+
+    detached: function() {
+      this._unregisterElement(this.key);
+
+    },
+    _keyChanged:function(newKey,oldKey) {
+      this._unregisterElement(oldKey); 
+      this._registerElement(newKey);
+    },
+    _registerElement:function(key) {
+       if(!(key in queries){
+        queries[key] = [];
+      }
+      queries[key].push(this); //add this element to the query list  
+      this._setValue((key in values)?values[key]:{});  
+    }.
+    _unregisterElement:function(key) {
+      if (key in queries) {
+        if(queries[key].indexOf(this) > -1) {
+          queries[key].splice(queries[key].indexOf(this),1);  //remove self from query list
+
+        }
+      }
+    }
+  });
+
+}());
+
+</script>

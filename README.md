@@ -212,13 +212,13 @@ the appointment element somthing like this (those elements with the path attribu
 <akc-route-selector selected="{{segment}}">
   <iron-pages selected="[[segment]]">
     <new-patient path="new"></new-patient>
-    <patient-summary path="patient/+id"></patient-summary>
+    <patient-summary path="patient/+d"></patient-summary>
   </iron-pages>
 </akc-route-selector>
 <template is="dom-repeat" items={{doctors}}>
   <appointment-list doctor="[[item]]"></appointment-list>
 </template>
-<doctor-detail path="doctor/+id"></doctor-detail>
+<doctor-detail path="doctor/+d"></doctor-detail>
 ```
 
 This piece of the application would therefore respond to urls like this:-
@@ -241,16 +241,15 @@ behavior, then the following example is how `<akc-router>` might be used.
     <akc-router base="/blog" selected="{{index}}"></akc-router>
     <iron-pages selected="[[index]]">
       <x-page path="/"></x-page>
-      <y-page path="user/+id"></y-page>
+      <y-page path="user/+d"></y-page>
     </iron-pages>
-    <z-dialog path="/search" dialog></z-dialog>
+    <z-dialog path="/search/+s" dialog></z-dialog>
   </template>
 </body>
 ```
 
-The main issue is showing how an selected property from the router is being used to select a page
-based in whether the URL is '/base' or starts with /base/user/4 (it may have further components -
-see below).
+The main issue is showing how a selected property from the router is being used to select a page based on whether the URL is '/blog' or starts with
+/blog/user/4 (it may have further components - see below).
 
 
 Then we come to define one of custom elements `<y-page>`
@@ -290,7 +289,7 @@ Then we come to define one of custom elements `<y-page>`
         }
       },
       _computeURL:function(params) {
-        return ['/api/user',params.id,'get'].join('/');
+        return ['/api/user',params[0],'get'].join('/');
       },
       _routeChange:function(resolve,reject){
         this.$.getuser.addEventListener('response',response) {
@@ -305,18 +304,16 @@ Then we come to define one of custom elements `<y-page>`
 
 
 This is quite a complicated example, but is showing several things.  Firstly when the y-page element
-is first selected (along with its `id` parameter), its `_routeChange()` function will be called. It
-will retrieve (partially by databinding) the id.  It uses `<iron-ajax>` to retrieve the `state` and
-set this as a property. Doing so will push the state into the browser history, so it can be
-retrieved in the case of the user using the back button.
+is first selected (along with its numeric `id` parameter), its `_routeChange()` function will be called. It will retrieve (partially by databinding) the id.  It uses `<iron-ajax>` to retrieve the `state` and set this as a property.
+Doing so will push the state into the browser history, so it can be retrieved 
+in the case of the user using the back button.
 
-Secondly, the `akc-route-selector` element is used to select from a number of children of this
-element based on the URL. '/blog/user/4' will load the `a-page` element, a URL of
-'/blog/user/4/edit' will load the `b-page` element. NOTE: `a-page` and `b-page` would both have to
-included `AKC.Route` behavior for this to work. If they had not both done so then at least the
+Secondly, the `akc-route-selector` element is used to select from a number of children of this element based on the URL. '/blog/user/4' will load the
+`a-page` element, a URL of '/blog/user/4/edit' will load the `b-page` element.
+NOTE: `a-page` and `b-page` would both have to have included `AKC.Route` behavior for this to work. If they had not both done so then at least the
 second URL would cause the router to fire an `akc-route-404` event.
 
-NOTE: The use of "action" parameter in the `b-page` `path` attribute. 
+NOTE: The use of an "action" parameter in the `b-page` `path` attribute. 
 
 ##How the elements work
 
