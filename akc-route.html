@@ -1,51 +1,101 @@
-<!--
+<<!--
 @licence
-    Copyright (c) 2015 Alan Chandler, all rights reserved
+  Copyright (c) 2015 Alan Chandler, all rights reserved
 
-    This file is part of akc-router.
+  This file is part of akc-router.
 
-    akc-router is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+  akc-router is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
 
-    akc-router is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+  akc-router is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with akc-router.  If not, see <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU General Public License
+  along with akc-router.  If not, see <http://www.gnu.org/licenses/>.
 -->
 <!--
 
-`AKC.Route` is a behavior that works in conjuction with a `<akc-router>` web component, and possibly some `<akc-route-selector>` components.  It is added to two types of web component:-
+`AKC.Route` behavior is *normally* added to two types of custom element:-
 
-1. Those that designed to sit (once the cpomponent have been stamped out into the DOM) as direct children of an `<iron-pages>` (or derivative) element, or
-2. A component controlling a modal dialog.
+1. Those that sit (once the elements have been stamped out into the DOM) as direct children of an
+`<iron-pages>` (or derivative) element, or
 
-The behavior defines a `path` property which should be configured on the element to specify which URLs it will respond to. It should be statically defined because it is only analysed once.
+2. An element controlling a modal dialog.
 
-Each portion of the URL is called a **model** and consists of a *name* and a number of values acting as parameters to the model separated with the "/".  Actually there is one other special type of `model` which has the name "/".  This may not have any parameters, or children elements with an `AKC.Route` behavior. It is only needed if there is a need to sit alongside sibling `AKC.Route` elements, but still have something to display when the URL is missing the model portion of the others.
+The behavior defines a `path` property which should be configured on the element to specify which
+URLs it will respond to. It should be statically defined because it is only analysed onced by the
+router once all the elements have been added to the DOM. Because elements with this behaviour can
+be nested, the `path` only maps on to part of the URL.
 
-This `path` attribute should contain a pattern which consists of a series of segments separated by the "/" character (The initial "/" character is optional, except of course the when it the only character). The first segment is the "name" of the model. Following the name can be zero or more segments which start with a "+" character. Each one of those specifies a *definite* parameter, with the remainder of the segment being the name of that parameter. Following definite parameters are zero or more *optional* ones.  These are specified in a similar way, except that the "-" character is used instead of the plus. Finally, optionally, there may be an action list.  This is a set of names separated by ":" characters.
+Each portion of the URL is called a **model** and consists of a "/" followed by a *name* and a
+number of values acting as parameters to the model separated with the "/". Actually there is one
+other special type of `model` which has the name "/". This may not have any parameters, or
+children elements with an `AKC.Route` behavior. It is needed  to sit alongside sibling `AKC.Route`
+elements with names, but still have something to display when the URL is missing the model portion
+of the.
 
-Because of the way the URL to model matching mechanism has to work, there are some constraints on model and action names.
-* Model names are case insensitive. We recommend only using lowercase characters and avoiding using the '-' character within them.
-* The model name will always be matched in preference to an optional parameter value in a url (assuming no action names) and so should be chosen such that it is unlikely to clash.  For example, a model pattern '/user/+uid/-country' means it would be extremely unwise to have a model name of 'france' that might follow it.
-* An action name will always be matched in preference to an optional parameter value in a url, For example it would not be a good idea to have a model pattern '/user/+uid/-sport/fight:stop'
-* To support multiple areas of the screen, the models that match them can come in any order in the url. But this is regarded as an unusual use case. So the matching algorithm will favour a child model over a sibling, and will favour a sibling over an element which is the sibling of the parent.  So use with caution. For example the URL '/user/5/edit' will match a 'user' model with a sub model of 'edit' over a pair of areas with 'user' and 'edit' capability.
+This `path` attribute should contain a pattern which consists of a series of segments separated by
+the "/" character (The initial "/" character is optional, except of course the when it the only
+character). The first segment is the "name" of the model. Following the name can be zero or more
+segments which start with a "+" character, followed by either "d" or "s". Each one of those
+specifies a *definite* parameter, d specifying that it should only consists of digits (0-9) or s
+specifying that the parameter should be a string (\w from RegExp). Following definite parameters are
+zero or more *optional* ones.  These are specified in a similar way, except that the "-" character
+is used instead of the plus. Finally, optionally, there may be an action list.  This is a set of
+names separated by ":" characters.  If the first character of the action options is a ":" it means
+that the action part of the model is optional (ie the URL may or may not contain it.)
 
-When the element containing this behavior is selected, it will expose the actual values of its parameters in a `parameters` property. This property will be an Object which contains keys based on the names of the parameters. Only the keys representing paramters that are actually present in the URL will be present in the properties object.
-It will expose an `action` property with a string value of the option used, unless there is no specification, when the `action` property will be the empty string.
+Because of the way the URL to model matching mechanism has to work, there are some constraints on
+model and action names.
 
-The behaviour also defines a read/write `state` Object property with a notify:true flag and a `replay` Boolean readOnly property, also with the notify:true flag.  If the URL is being switched to as a result of the initial start up to this URL, or as a result of being switched to from another part of the application, the  `replay` property will be false, and the state object will be invalid. If the user switches to the URL through the back or forward button on the browser, any previously saved state will be presented on the `state` property and the `replay` property will be true. If the state property is changed. it will replace any state already saved (using `history.replaceState()`), so should be reflected back on the next replay.
+* Model and Action names are case insensitive and must match the \w (from RegExp) characters. We
+recommend only using lowercase characters. The same is true of the parameters after the "+" or "-"
+signs, but of course they will not be represented literally in the URLs.
 
-Finally, when this element is selected as a result of a URL change, an abstract function "_routeSelected()" is called. The host element should implement this function and return false if it doesn't intend to update state state in the near future, and true if it does. (it doesn't have to wait for the state to actually change, its just an indication that it expects to change shortly.)
+* Because the entire URL is matched in one go, a model name will be matched in preference to an
+optional parameter value (assuming no action names). Care must be taken with the overall URL
+strategy to avoid such ambiguities.
+
+* An action name will always be matched in preference to an optional parameter
+value in a url, For example it would not be a good idea to have a model pattern
+'/user/+d/-s/fight:stop' when the second (optional) parameter might be the name
+of a sport.
+
+When the element containing this behavior is selected, it will expose the actual
+values of its parameters in a `parameters` property. This property will be an Array containing the values in the order specified in the *path*. Only the
+values are actually present in the URL will be present in the properties Array.
+The element will also expose an `action` property with a string value of the
+option used, unless there is no specification, when the `action` property will
+be the empty string.
+
+The behaviour defines a read/write `state` Object property with a notify:true flag.  If the URL is
+being switched to as a result of the initial start up to this URL, or as a result of being switched
+to from another part of the application, the host element is responsible for getting the state based
+on the `parameters`.  Since this is likely to be an asynchronous option, the `AKC.Route` module asks
+the host element to get the state by calling an abstract routine called `_routeChange` from within a
+Promise, with two (resolve and reject) callbacks.
+
+A successful resolution will provide `AKC.Route` back with the state, which is then exposed on the
+property, but perhaps more importantly, co-ordinates with the other elements also involved with this
+URL so that the state can be passed back to the browsers history.  The reject option expects a new
+URL to switch to.  This can be used if invalid parameters have been passed in a URL and the element
+wants to redirect to somewhere to tell the user.
+
+If the user switches to the URL through the back or forward button on the browser, any previously
+saved state will seperated out from the other models and put back to the property. At that point the
+behavior will call another abstract function, `_replayURL` which the host element can use (if it
+needs to) to do any other operations it would normally undertake once the state had been aquired.
+
+Elements may optionally include a `dialog` property.  When it does, it tells the router to exclude
+this element from the list of elements to *select* when deciding what value to put out on the
+`selected` attribute.  It's index will still be counted from the start of the level, so don't embed
+one as a direct child of an `iron-pages` element.
 
 -->
-
-
 
 <script>
 window.AKC = window.AKC||{};

@@ -266,13 +266,19 @@ Polymer({
     return this.statePromise;
   },
   _dispatchUrl:function(url,state) {
-    var route = '';
     var event = {};
     function parseModel(model,matches) {
+      var selected = -1;
+      var nodeCounter = 0;
+      var selectorSelection
       //Step1 - see if are any selectors
       mode.forEach(function(node){
         if(node.isSelector) {
-          parseModel(model,matches,state);
+          if  (node.children.length > 0) {
+            if((selectorSelection = parseModel(node.children,matches)) >= 0) {
+              node.element.selected = selectorSelection; //Only set if not a dialog being displayed
+            }
+          }
         }
       });
       //Step2
@@ -280,6 +286,7 @@ Polymer({
         //Step3 - see if we have a match
         model.forEach(function(node) {
           if(!(node.isSelector || node.isHome) && matches[0] == node.name) {
+            if(!node.element.dialog) selected = nodeCounter;
             route = [route,node.name].join('/')
             matches.shift();
             if(node.params.length > 0) {
@@ -322,11 +329,14 @@ Polymer({
               }
               node.element.fire('akc-route-change',event);
             }
+          } else {
+            if (!(node.isSelector || node.element.dialog)) nodeCounter++;
           }
         };
       } else {
         if(!model.some(function(node){
           if(node.isHome) {
+            if(!node.element.dialog) selected = nodeCounter;
             node.element.fire('akc-route-change',event);
             return true;
           }
@@ -335,8 +345,15 @@ Polymer({
           throw new Error('URL is too short');
         }
       }
+      if(selected >= 0) {
+        model.forEach(function(node){
+          //see if a selector at this level with no children, that therefore has to display the selected value
+          if(node.isSelector && node.children.length = 0) node.element.selected = selected;
+        });
+      }
+      return selected;
     });
-    var urlMatches,matches;
+    var urlMatches,matches,routeSelected;
     If(urlMatches = /^(\/(?:[^.]*[^/.]))(\/[^/]*?)?$/.exec(url)) {
       this.url = urlMatches[1];//strip filename portion (but fails on "/index.html");
     } else {
@@ -352,7 +369,8 @@ Polymer({
       }
       matches = this.regex.exec(this.url);
       matches.shift();  //not interested in the first one as its just the url
-      parseModel(this.model,matches);
+      routeSelected = parseModel(this.model,matches);
+      if(routeSelected >= 0) this.selected = routeSelected;
     } else {
       this.fire('akc-route-404',url)
     }

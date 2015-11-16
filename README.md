@@ -119,16 +119,17 @@ signs, but of course they will not be represented literally in the URLs.
 optional parameter value (assuming no action names). Care must be taken with the overall URL
 strategy to avoid such ambiguities.
 
-* An action name will always be matched in preference to an optional parameter value in a url, For
-example it would not be a good idea to have a model pattern '/user/+d/-s/fight:stop' when the second
-(optional) parameter might be the name of a sport.
+* An action name will always be matched in preference to an optional parameter
+value in a url, For example it would not be a good idea to have a model pattern
+'/user/+d/-s/fight:stop' when the second (optional) parameter might be the name
+of a sport.
 
-When the element containing this behavior is selected, it will expose the actual values of its
-parameters in a `parameters` property. This property will be an Array containing the values in the
-order specified in the *path*. Only the values are actually present in the
-URL will be present in the properties Array. The element will also expose an `action` property with
-a string value of the option used, unless there is no specification, when the `action` property will
-be the empty string.
+When the element containing this behavior is selected, it will expose the actual
+values of its parameters in a `parameters` property. This property will be an Array containing the values in the order specified in the *path*. Only the
+values are actually present in the URL will be present in the properties Array.
+The element will also expose an `action` property with a string value of the
+option used, unless there is no specification, when the `action` property will
+be the empty string. 
 
 The behaviour defines a read/write `state` Object property with a notify:true flag.  If the URL is
 being switched to as a result of the initial start up to this URL, or as a result of being switched
