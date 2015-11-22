@@ -76,8 +76,14 @@ The behaviour defines a read/write `state` Object property with a notify:true fl
 being switched to as a result of the initial start up to this URL, or as a result of being switched
 to from another part of the application, the host element is responsible for getting the state based
 on the `parameters`.  Since this is likely to be an asynchronous option, the `AKC.Route` module asks
-the host element to get the state by calling an abstract routine called `_routeChange` from within a
-Promise, with two (resolve and reject) callbacks.
+the host element to get the state by calling an abstract routine called `_routeChange.  This
+function should return a "Promise", which will be fulfilled (or not) when the host element has
+obtained the "state".  It should include the returned state as the fulfillment value of this
+promise.
+
+Alternatively the host element may reject the promise, and provide as the rejection value a new url
+to switch to.`This can be used if invalid parameters have been passed in a URL and the element wants
+to redirect to somewhere to tell the user.
 
 A successful resolution will provide `AKC.Route` back with the state, which is then exposed on the
 property, but perhaps more importantly, co-ordinates with the other elements also involved with this
@@ -92,8 +98,8 @@ needs to) to do any other operations it would normally undertake once the state 
 
 Elements may optionally include a `dialog` property.  When it does, it tells the router to exclude
 this element from the list of elements to *select* when deciding what value to put out on the
-`selected` attribute.  It's index will still be counted from the start of the level, so don't embed
-one as a direct child of an `iron-pages` element.
+`selected` attribute.  It's index will **note** be counted from the start of the level, so do not
+include it as a child of an `<iron-pages>` element.
 
 -->
 
@@ -104,8 +110,8 @@ AKC.Route = {
     properties: {
       path: String,
       parameters : {
-        type: Object,
-        value:{},
+        type: Array,
+        value:[],
         notify:true
       },
       state: {
@@ -118,58 +124,29 @@ AKC.Route = {
         value:'',
         notify:true
       },
-      route:String,
-      dialog:{
+      dialog: {
         type:Boolean,
         value:false
       }
     },
-    listeners:{'akc-route-selected':'_routeSelected'},
-    _routeSelected(e) {
-        //remember this event is going to all elements on route.
-        if (e.detail.replay) {
-            this.state = e.detail.state[this.route];
-        }
-
-        for(var i = 0; i < model.values.length; i++) {
-            this.params[model.params[this.route][i]] = model.values[i];
-        }
-        this.action = model.action;
-        if (e.detail.replay) {
-            this._replayURL();
-            return;
-        }
-        var save = new Promise(function(resolve,reject){
-            if(e.target == this){
-                resolve({});  //a new save is not coming, so we resolve immediately
-            } else {
-                this.addEventListener('akc-route-save',function(e){
-                    e.preventDefault(); //stop it propagating
-                    resolve(e.detail);
-                });
-            }
+    routeSelected(params,action,state) {
+      //remember this event is going to all elements on route.
+      this.params = params;
+      this.action = action;
+      if (state) {
+          this.state = state;
+          this._replayURL();
+          return false;
+      }
+      return this._routeChange().then(function(state){
+          this.state = state;
+          return state;
         }.bind(this));
-
-        var sequence = new Promise(function(resolve,reject){
-            this._routeChange(resolve,reject);
-        }.bind(this));
-        sequence.then(function(state){
-            this.state = state; //we don't need to wait for the other states - so jump in here
-            return state;
-        });
-        Promise.all(save,sequence).then(function(states){
-            var state = states[0];
-            state[this.route] = states[1];//merge states
-            this.fire('akc-route-save',state);
-        }.bind(this)).catch(function(url){
-            this.fire('akc-route-change',url);
-        }.bind(this));
-
 
     },
-    _routeChange:function(resolve,reject) {
+    _routeChange:function() {
         //Abstract
-        resolve(this.state);
+        return Promise.resolve({}); //If element doesn't override this thare is no meaningful state.
     },
     _replayURL:function() {
         //Abstract

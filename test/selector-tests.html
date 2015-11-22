@@ -1,0 +1,125 @@
+<!doctype html>
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<!--
+    Copyright (c) 2015 Alan Chandler, all rights reserved
+
+    This file is part of akc-router.
+
+    akc-router is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    akc-meta is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with akc-router.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <script src="../../test-fixture/test-fixture-mocha.js"></script>
+
+    <link rel="import" href="../../test-fixture/test-fixture.html">
+    <link rel="import" href="../../polymer/polymer.html">
+
+    <!-- Step 1: import the element to test -->
+    <link rel="import" href="../akc-router.html">
+    <link rel="import" href="test-element.html">
+  </head>
+  <body>
+
+
+  <test-fixture id="selector_tests">
+    <template>
+        <akc-router id="router" base="/components/akc-router/test" ></akc-router>
+        <x-tester id="xs" path="/search" dialog></x-tester>
+        <x-tester id="xu" path="user/+d/:edit">
+          <akc-route-selector id="sub">
+            <x-tester id="xsd" path="/warn/+s" dialog>
+              <akc-route-selector id="dsub">
+                <x-tester id="xsdh" path="/"></x-tester>
+                <x-tester id="xsdp" path="/serious"></x-tester>
+              </akc-route-selector>
+            </x-tester>
+            <x-tester id="xsn" path="/new"></x-tester>
+            <x-tester id="xsh" path="/"></x-tester>
+
+          </akc-route-selector>
+
+        </x-tester>
+        <x-tester id="xh" path="/"></x-tester>
+
+    </template>
+  </test-fixture>
+
+
+    <script>
+    function promiseTimeout (time) {
+      return new Promise(function(resolve,reject){
+        setTimeout(resolve,time,time);
+      });
+    };
+
+      describe('<akc-route-selector>Selection Capability',function(){
+        this.timeout(0);
+        var f,r,sub,dsub;
+        var sandbox;
+        var xh,xu,xp,xsh,xsn;
+
+        beforeEach(function(){
+          sandbox = sinon.sandbox.create();
+          f = fixture('selector_tests');
+          r = document.getElementById('router');
+          sub = document.getElementById('sub');
+          dsub = document.getElementById('dsub')
+          xh = document.getElementById('xh');
+        });
+
+        afterEach(function(){
+          sandbox.restore();
+        });
+
+        it('should resolve home selectors',function(done){
+          r.domOK().then(function(){
+            xh.fire('akc-route-change','/user/2');
+          }).then(promiseTimeout.bind(null,10)).then(function(){
+            expect(r.selected).to.equal(0);
+            expect(sub.selected).to.equal(1);
+            expect(dsub.selected).to.equal(0)
+            done();
+          });
+        });
+        it('should resolve none home selectors',function(done){
+          r.domOK().then(function(){
+            xh.fire('akc-route-change','/user/4/edit/warn/careful/serious');
+          }).then(promiseTimeout.bind(null,10)).then(function(){
+            expect(r.selected).to.equal(0);
+            expect(sub.selected).to.equal(1); //warn is a dialog, so not cheanged
+            expect(dsub.selected).to.equal(1)
+            done();
+          });
+        });
+      });
+    </script>
+
+  </body>
+</html>

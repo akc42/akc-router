@@ -1,8 +1,42 @@
-<link rel="import" href="../polymer/polymer.html">
+<!--
+@licence
+    Copyright (c) 2015 Alan Chandler, all rights reserved
 
+    This file is part of akc-router.
+
+    akc-router is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    akc-router is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with akc-router.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<--
+ This may be included on a page to provide indexing
+for its children with `AKC.Route` behaviour.  It invokes a "selected" property which provides
+indexing for the `AKC.Route` elements as its children.  It must have valid children (either 1
+ordinary route, and one home route, or two or more ordinary routes with an optional home route as
+well.  It can also have embedded `<akc-route-selector>` elements.)
+-->
+
+
+
+<link rel="import" href="../polymer/polymer.html">
+<dom-module is="akc-route-selector">
+  <<template>
+    <content></content>
+  </template>
+</dom-module>
 <script>
   Polymer({
-    is:'akc-router-selector',
+    is:'akc-route-selector',
     properties:{
       selected: {
         type:Number,

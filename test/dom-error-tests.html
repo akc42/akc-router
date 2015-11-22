@@ -26,6 +26,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   </head>
   <body>
 
+  <test-fixture id="no_routes">
+    <template>
+      <akc-router id="router"></akc-router>
+    </template>
+  </test-fixture>
+
   <test-fixture id="multiple_home">
     <template>
       <akc-router id="router"></akc-router>
@@ -38,22 +44,22 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     <template>
       <akc-router id="router"></akc-router>
       <x-tester path="/user"></x-tester>
-      <x-tester path="/user/+id"></x-tester>
+      <x-tester path="/user/+d"></x-tester>
     </template>
   </test-fixture>
 
   <test-fixture id="bad_path">
     <template>
       <akc-router id="router"></akc-router>
-      <x-tester path="/search/-search/:complex"></x-tester>
-      <x-tester path="/user/+id/-age/+type"></x-tester>
+      <x-tester path="/search/-s/:complex"></x-tester>
+      <x-tester path="/user/+d/-s/+s"></x-tester>
     </template>
   </test-fixture>
 
   <test-fixture id="home_with_children">
     <template>
       <akc-router id="router"></akc-router>
-      <x-tester path="/user/+id">
+      <x-tester path="/user/+d">
         <x-tester path="/user"></x-tester>
       </x-tester>
       <x-tester path="/">
@@ -62,6 +68,27 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     </template>
   </test-fixture>
 
+  <test-fixture id="home_without_a_route">
+    <template>
+      <akc-router id="router"></akc-router>
+      <x-tester path="/"></x-tester>
+      <akc-route-selector>
+        <x-tester path="/"></x-tester>
+        <x-tester path="/edit"></x-tester>
+      </akc-route-selector>
+    </template>
+  </test-fixture>
+
+  <test-fixture id="single_route_without_home">
+    <template>
+      <akc-router id="router"></akc-router>
+      <x-tester path="/user"></x-tester>
+      <akc-route-selector>
+        <x-tester path="/show"></x-tester>
+        <x-tester path="/edit"></x-tester>
+      </akc-route-selector>
+    </template>
+  </test-fixture>
 
     <script>
       describe('<akc-router> Initial Dispatch',function(){
@@ -69,6 +96,21 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         var r;
         afterEach(function(){
           t.restore();
+        });
+
+        it('should fail if no routes defined',function(done){
+          t = document.getElementById('no_routes');
+          t.create();
+          var r = document.getElementById('router')
+          r.domOK().then(function(status){
+            //We should not get here throw an error
+            assert.fail('Did not error - status is: ' + status);
+            done();
+          }).catch(function(error){
+            expect(error.message).to.equal('No Routable Nodes');
+            done();
+          });
+
         });
 
         it('should fail if two route elements both designate themselves as home', function(done) {
@@ -95,7 +137,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
             assert.fail('Did not error - status is: ' + status);
             done();
           }).catch(function(error){
-            expect(error.message).to.equal('There are two nodes with the same name: /user');
+            expect(error.message).to.equal('There are two nodes with the same name: user');
             done();
           });
 
@@ -109,7 +151,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
             assert.fail('Did not error - status is: ' + status);
             done();
           }).catch(function(error){
-            expect(error.message).to.equal('/user/+id/-age/+type is an invalid path');
+            expect(error.message).to.equal('/user/+d/-s/+s is an invalid path');
             done();
           });
         });
@@ -122,10 +164,38 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
             assert.fail('Did not error - status is: ' + status);
             done();
           }).catch(function(error){
-            expect(error.message).to.equal('Home node has 1 child');
+            expect(error.message).to.equal('Home nodes cannot have children');
             done();
           });
 
+        });
+        it('should fail when there is a Home without a Route',function(done){
+          t = document.getElementById('home_without_a_route');
+          t.create();
+          r = document.getElementById('router')
+          r.domOK().then(function(status){
+            //We should not get here throw an error
+            assert.fail('Did not error - status is: ' + status);
+            done();
+          }).catch(function(error){
+            expect(error.message).to.equal('Cannot have a Home without some Routes');
+            done();
+          });
+
+        });
+
+        it('should fail when there is a single Route without a Home',function(done){
+          t = document.getElementById('single_route_without_home');
+          t.create();
+          r = document.getElementById('router')
+          r.domOK().then(function(status){
+            //We should not get here throw an error
+            assert.fail('Did not error - status is: ' + status);
+            done();
+          }).catch(function(error){
+            expect(error.message).to.equal('Cannot have a single Route without also having a Home');
+            done();
+          });
         });
 
       });

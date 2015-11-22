@@ -8,6 +8,29 @@ The complete set of contributors may be found at http://polymer.github.io/CONTRI
 Code distributed by Google as part of the polymer project is also
 subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
 -->
+
+<!--
+@licence
+    Copyright (c) 2015 Alan Chandler, all rights reserved
+
+    This file is part of akc-router.
+
+    akc-router is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    akc-router is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with akc-router.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+
+
 <html>
   <head>
     <meta charset="utf-8">
@@ -15,50 +38,52 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
     <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
     <script src="../../web-component-tester/browser.js"></script>
+
     <script src="../../test-fixture/test-fixture-mocha.js"></script>
 
     <link rel="import" href="../../test-fixture/test-fixture.html">
+    <link rel="import" href="../../polymer/polymer.html">
 
 
     <!-- Step 1: import the element to test -->
     <link rel="import" href="../akc-router.html">
    </head>
   <body>
-  <test-fixture id="instantiate">
 
-    <template is="dom-bind">
-      <akc-router id="router1"></akc-router>
-      <akc-router id="router2"></akc-router>
+  <test-fixture id="single">
+    <template>
+      <akc-router id="router"></akc-router>
     </template>
+  </test-fixture>
 
+  <test-fixture id="double">
+    <template>
+        <akc-router id="router1"></akc-router>
+        <akc-router id="router2"></akc-router>
+    </template>
   </test-fixture>
 
 
     <script>
       describe('<akc-router> instantiation', function() {
-        var app;
-        beforeEach(function(){
-          fixture('instantiate');
+        var t;
+        var r;
+        afterEach(function(){
+          t.restore();
         });
 
         it('should instantiates itself correctly once',function(){
-          expect(document.getElementById('router1')).to.be.ok;
+          t = document.getElementById('single');
+          t.create();
+          r = document.getElementById('router');
+          expect(r).to.be.ok;
         });
 
         it('should not instatiate itself correctly twice',function(){
-          expect(document.getElementById('router2')).not.to.be.ok;
-        });
-        it('should fail if no routes defined',function(){
-          var r = document.getElementById('router1')
-          r.domOK().then(function(status){
-            //We should not get here throw an error
-            assert.fail('Did not error - status is: ' + status);
-            done();
-          }).catch(function(error){
-            expect(error.message).to.equal('No Routing Nodes');
-            done();
-          });
-
+          t = document.getElementById('double');
+          t.create();
+          r = document.getElementById('router2');
+          expect(r).not.to.be.ok;
         });
 
       });

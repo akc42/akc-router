@@ -1,0 +1,178 @@
+<!doctype html>
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<!--
+    Copyright (c) 2015 Alan Chandler, all rights reserved
+
+    This file is part of akc-router.
+
+    akc-router is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    akc-meta is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with akc-router.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <script src="../../test-fixture/test-fixture-mocha.js"></script>
+
+    <link rel="import" href="../../test-fixture/test-fixture.html">
+    <link rel="import" href="../../polymer/polymer.html">
+
+    <!-- Step 1: import the element to test -->
+    <link rel="import" href="../akc-router.html">
+    <link rel="import" href="test-element.html">
+  </head>
+  <body>
+
+
+  <test-fixture id="url_dispatch">
+    <template>
+        <akc-router id="router" base="/components/akc-router/test" ></akc-router>
+        <x-tester id="xh" path="/">
+          <div>This is the home path</div>
+        </x-tester>
+        <x-tester id="xu" path="user/+d/:edit">
+          <p>Profile embedded</p>
+          <akc-route-selector id="sub">
+            <x-tester id="xsh" path="/"></x-tester>
+            <x-tester id="xsn" path="/new"></x-tester>
+          </akc-route-selector>
+        </x-tester>
+        <x-tester id="xs" path="/search" dialog></x-tester>
+        <x-tester id="x404" path="/404"></x-tester>
+    </template>
+  </test-fixture>
+
+
+    <script>
+    function promiseTimeout (time) {
+      return new Promise(function(resolve,reject){
+        setTimeout(resolve,time,time);
+      });
+    };
+
+      describe('<akc-router> URL Dispaching Capability',function(){
+        var r;
+        var sandbox;
+        var xh,xu;
+
+        beforeEach(function(){
+          this.timeout(0);
+          sandbox = sinon.sandbox.create();
+          fixture('url_dispatch');
+          r = document.getElementById('router');
+          xh = document.getElementById('xh');
+          xu = document.getElementById('xu');
+        });
+
+        afterEach(function(){
+          sandbox.restore();
+        });
+        it('should initially dispatch to home', function(done) {
+          sandbox.spy(xh ,'_routeChange');
+          sandbox.spy(xu,'_routeChange');
+          r.domOK().then(function(){
+            expect(xh._routeChange).to.have.been.calledOnce;
+            expect(xu._routeChange).not.to.have.been.called
+            expect(r.url).to.equal('/');
+            done();
+          });
+
+        });
+        it('when dispatched to home the router selector should show the correct selection',function(done){
+          r.domOK().then(function(){
+            expect(r.selected).to.equal(0);
+            done();
+          });
+        });
+        it('should dispatch to a specific url when requested',function(done){
+          sandbox.spy(xu,'_routeChange');
+          r.domOK().then(function(){
+            xh.fire('akc-route-change','/user/4/new');
+          }).then(function(){
+            return promiseTimeout(10);
+          }).then(function(){
+            expect(xu._routeChange).to.have.been.called;
+            expect(xu.params[0]).to.equal(4);
+            expect(r.selected).to.equal(1);
+            expect(r.url).to.equal('/user/4/new');
+            done();
+          });
+        });
+        it('should support routing to home',function(done){
+          var xsh = document.getElementById('xsh');
+          sandbox.spy(xsh,'_routeChange');
+          r.domOK().then(function(){
+            xh.fire('akc-route-change','/user/1');
+          }).then(promiseTimeout.bind(null,10)).then(function(){
+            expect(xsh._routeChange).to.have.been.called;
+            xh.fire('akc-route-change','/');
+          }).then(promiseTimeout.bind(null,10)).then(function(){
+            expect(r.url).to.equal('/');
+            done();
+          });
+
+        });
+        it('should support elements re-routing when they dont like selected route',function(done){
+          var xs = document.getElementById('xs');
+          sandbox.spy(xs,'_routeChange');
+          r.domOK().then(function(){
+            xh.fire('akc-route-change','/user/5');
+          }).then(promiseTimeout.bind(null,10)).then(function(){
+            expect(xs._routeChange).to.have.been.called;
+            expect(r.url).to.equal('/search');
+            done();
+          });
+        });
+
+        it('should support a 404 element when unrecognsed URL is used',function(done){
+          r.domOK().then(function(){
+            xh.fire('akc-route-change','/user/1/profile');
+          }).then(promiseTimeout.bind(null,10)).then(function(){
+            expect(r.url).to.equal('/404');
+            done();
+          })
+        });
+        it('should restore state when browser back button is used',function(done){
+          r.domOK().then(function(){
+            xh.fire('akc-route-change','/user/4/new');
+          }).then(promiseTimeout.bind(null,10)).then(function(t){
+            xu.fire('akc-route-change','/user/6');
+          }).then(promiseTimeout.bind(null,10)).then(function(t){
+            expect(xu.params[0]).to.equal(6);
+            history.back();
+          }).then(promiseTimeout.bind(null,10)).then(function(){
+            expect(xu.params[0]).to.equal(4);
+            expect(xu.state.uid).to.be.equal(4);
+            expect(r.url).to.equal('/user/4/new');
+            done();
+          });
+        });
+      });
+    </script>
+
+  </body>
+</html>
