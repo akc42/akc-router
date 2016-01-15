@@ -48,26 +48,21 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   <body>
 
 
-  <test-fixture id="selector_tests">
+  <test-fixture id="redirect_dispatch">
     <template>
         <akc-router id="router" ></akc-router>
-        <x-tester id="xs" path="/search" dialog></x-tester>
-        <x-tester id="xu" path="user/+d/:edit">
-          <akc-route-selector id="sub">
-            <x-tester id="xsd" path="/warn/+s" dialog>
-              <akc-route-selector id="dsub">
-                <x-tester id="xsdh" path="/"></x-tester>
-                <x-tester id="xsdp" path="/serious"></x-tester>
-              </akc-route-selector>
-            </x-tester>
-            <x-tester id="xsn" path="/new"></x-tester>
-            <x-tester id="xsh" path="/"></x-tester>
-
-          </akc-route-selector>
-
+        <x-tester id="xh" path="/">
+          <div>This is the home path</div>
         </x-tester>
-        <x-tester id="xh" path="/"></x-tester>
-
+        <x-tester id="xu" path="user/+d/:edit">
+          <p>Profile embedded</p>
+          <akc-route-selector id="sub">
+            <x-tester id="xsh" path="/"></x-tester>
+            <x-tester id="xsn" path="/new"></x-tester>
+          </akc-route-selector>
+        </x-tester>
+        <x-tester id="xs" path="/search" dialog></x-tester>
+        <x-tester id="x404" path="/404"></x-tester>
     </template>
   </test-fixture>
 
@@ -79,44 +74,45 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
       });
     };
 
-      describe('<akc-route-selector>Selection Capability',function(){
-        var f,r,sub,dsub;
+      describe('<akc-router> query string redirects',function(){
+        var r;
         var sandbox;
-        var xh,xu,xp,xsh,xsn;
+        var xh,xu;
 
-        beforeEach(function(){
-          sandbox = sinon.sandbox.create();
-          f = fixture('selector_tests');
-          r = document.getElementById('router');
-          sub = document.getElementById('sub');
-          dsub = document.getElementById('dsub')
-          xh = document.getElementById('xh');
-        });
 
         afterEach(function(){
           sandbox.restore();
         });
 
-        it('should resolve home selectors',function(done){
+        it('should dispatch to route redirect parameter if # set within base', function(done) {
+          sandbox = sinon.sandbox.create();
+          fixture('redirect_dispatch');
+          r = document.getElementById('router');
+          sandbox.stub(r,'hash').returns('#/components/akc-router/test/user/4/new');
+          xu = document.getElementById('xu');
+          sandbox.spy(xu,'_routeChange');
+
           r.domOK().then(function(){
-            xh.fire('akc-route-change','/user/2');
-          }).then(promiseTimeout.bind(null,10)).then(function(){
-            expect(r.selected).to.equal(0);
-            expect(sub.selected).to.equal(1);
-            expect(dsub.selected).to.equal(0)
-            done();
+            expect(xu._routeChange).to.have.been.called;
+            expect(xu.params[0]).to.equal(4);
+            expect(r.selected).to.equal(1);
+            expect(r.url).to.equal('/user/4/new');
+           done();
           });
+
         });
-        it('should resolve none home selectors',function(done){
-          r.domOK().then(function(){
-            xh.fire('akc-route-change','/user/4/edit/warn/careful/serious');
-          }).then(promiseTimeout.bind(null,10)).then(function(){
-            expect(r.selected).to.equal(0);
-            //expect(sub.selected).to.equal(0); dialog routed, so not set, so shouldn't expect it
-            expect(dsub.selected).to.equal(1)
+        it('should reject dispatch if route redirect is outside of base', function(done) {
+          sandbox = sinon.sandbox.create();
+          fixture('redirect_dispatch');
+          r = document.getElementById('router');
+          sandbox.stub(r,'hash').returns('#/user/4/new');
+           r.domOK().catch(function(error) {
+            expect(error.message).to.equal(
+              'We have been asked to route outside of our base location');
             done();
-          });
+          })
         });
+
       });
     </script>
 

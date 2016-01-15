@@ -162,9 +162,6 @@ within, the top `<template is="dom-bind">` in the main index.html file.
 
 It has the following properties
 
-* `base` is used to define the prefix to any URL being used.  So if the `application is sitting at
-(for example) http://example.com/blog, then `base` `should be set to '/blog'
-
 * `selected`  is a numeric property, giving the index amongst all the top level elements with
 ```AKC.Route` behavior that has been selected as a result of the current URL.
 
@@ -402,4 +399,10 @@ with an `akc-route-save` event. Again this is started at the lowest level on the
 elements higher up, wait for it to bubble up to them.  Here, they cancel it, take the information
 and add their own, then fire it again.  When it eventually reaches the top level (parent of the
 `akc-router` element) the router sees it and uses it to replace the history state.
+
+###Initial Dispatch
+
+There is one special case to consider, and that is the url that is dispatched when the application starts (ie when the active router is first attached to the DOM).  Part of the requirements is that a user can paste a url from anywhere in the application. However if the server just provides index.html in that case, the browser thinks that all the other files that are called relative to index.html are actually relative to the url pasted in.  Chaos ensues.  Instead the server should to a 301 redirect to the home page **but also** add a querystring parameter `redirect` set to the url requested by the user.
+
+Given that we can assume that the url we are receiving is the home page, we can assume all of the url before the final slash is a base.url that all internal workings will have appended before showing them in the address browser.  The `redirect` parameter should also assume the same base.
 

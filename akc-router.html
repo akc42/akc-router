@@ -347,7 +347,7 @@ Route.prototype.dispatch = function(matches,state) {
       }
     }
     if(this.actions.length > 0) {
-      paramMatch = this.match + this.params.length + 2;
+      paramMatch = this.match + this.params.length + 1;
       if(!this.actions.some(function(action){
         if(action == matches[paramMatch]) {
           actionValue = action;
@@ -400,7 +400,7 @@ var events = (function(){
   };
   function popper(e) {
     e.preventDefault();
-    t.url = window.location.pathname.slice(t.base.length);
+    t.url = t.pathname().slice(t.base.length);
     r(e.state);
   };
 
@@ -438,16 +438,6 @@ Polymer({
   properties: {
 
     /**
-     * `base` Provides the base URL which all other URL's in this system are relative too.
-     *
-     *  This parameter is so that the application can sit at a subdirectory.
-     */
-    base: {
-      type:String,
-      value:'/'
-    },
-
-    /**
      * gives the current url that this router is managing
      * .
      */
@@ -476,18 +466,24 @@ Polymer({
 
   },
   attached: function(){
-    var url,urlMatches;
+    var urlMatches;
     if(router) {
       this.isActive = false;
       this.remove();
     } else {
       router = true; //mark router as established
       this.isActive = true;
-      // First step strip any filename off.
-      if(urlMatches = /^(\/(?:[^.]*[^/.]))(\/[^/]*?)?$/.exec(window.location.pathname)) {
-        url = urlMatches[1];//strip filename portion (but fails on "/index.html");
+
+      /*
+        We assume the incoming url is at the base of our application (it is up to the server to
+        redirect us there if it isnt).  Our first job is to strip the filename off and find out
+        what it is
+
+      */
+      if(urlMatches = /^(\/(?:[^.]*[^\/.]))(\/[^\/]*?)?$/.exec(this.pathname())) {
+        this.base = urlMatches[1];//strip filename portion (but fails on "/index.html");
       } else {
-        url = '/'
+        this.base = ''
       }
 
       this.async(function(){
@@ -508,27 +504,48 @@ Polymer({
           if(this.model.children.length <= 0) throw new Error('No Routable Nodes');
           //Step 2 get the collected regex string and make an actual regex with it.
           this.regex = new RegExp(regex.s,'i');
-          // Now we want to sanatize our base url
-          if(this.base.length > 0) {
-            if (this.base === '/') {
-              this.base = '';
-            } else {
-              if (this.base.charAt(0) !== '/') this.base = '/' + this.base; //add '/' to beginning
-              if (this.base.charAt(this.base.length -1) == '/') this.base = this.base.slice(0,-1); //remove '/' from end
-              if(url < this.base.length || url.slice(0,this.base.length) !== this.base) throw new Error('Base doesn\'t match incoming url');
-              url = url.slice(this.base.length); //Take the base off the url for use internally
-              if(url.length === 0) url = '/'; //If we stripped everything off, then we really mean home.
-            }
-          }
-          this.url = url;  //this allows outside to see what we are managing
+          // Now we want to check that if we have been redirected it is within the base.
+          this.url = '/'
           this._routeChangeHandler(false);
-          this.domResolver(regex.s);
+          this.async(function() {
+            /*
+              Having established ourselves that the base url, we could now redirect ourselves the route that
+              is being asked for in the hash string.  We delay it because we want the test spys to be able
+              to control us
+            */
+            try {
+              if(this.hash().substring(1) !== '') {
+                url = this.hash().substring(1);
+                if(this.base.length > 0) {
+                  if (url.substring(0,this.base.length) !== this.base) {
+                    throw new Error('We have been asked to route outside of our base location');
+                  }
+                  this.fire('akc-route-change',url.slice(this.base.length));
+                }
+              }
+              this.domResolver(regex.s);
+            } catch(error) {
+              this.domRejector(error);
+            }
+
+          });
+
         } catch (error) {
           /*this.selected should still be 0, so it should be up to that page to read DomOK to find out what happened.
           * it may decide to raise an error, so it can be presented to the user
           */
           this.domRejector(error);
         }
+        this.domPromise.then(function() {
+          return new Promise(function(accept,reject) {
+            var url;
+            try {
+              accept(regex.s);
+            } catch (error) {
+              reject(error);
+            }
+          });
+        })
 
       });
     }
@@ -567,6 +584,12 @@ Polymer({
       this.url = '/404';
       this._routeChangeHandler(state);
     }
+  },
+  pathname: function () {
+    return window.location.pathname;
+  },
+  hash: function() {
+    return window.location.hash
   }
 });
 
