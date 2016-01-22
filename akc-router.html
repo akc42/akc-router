@@ -273,15 +273,15 @@ Route.prototype.parsePath = function (regex) {
     // we need one '(?:' for the entire route, including children, and one '(?:' for this route element
     regex.s = '(?:(' + matches[PATH_NAME] + ')';
     if(typeof matches[FIXED_PARAMS] !== 'undefined') {
-      matches[FIXED_PARAMS].substring(2).split('/+').forEach(function(param){
+      matches[FIXED_PARAMS].substring(2).split('/+').forEach(function(param) {
         regex.s = '\\/(\\' + ((param === 'd')?'d':'w') + '+)';
         this.params.push(param == 'd');
       },this);
     }
     this.fixed = this.params.length;
     if(typeof matches[VARIABLE_PARAMS] !== 'undefined') {
-      matches[VARIABLE_PARAMS].substring(2).split('/-').forEach(function(param){
-        regex.s = '(?:\\/(\\' + ((param == 'd')?'d':'w') + '+))?' + (param == 's')?'?':'' ; //make these lazy if string
+      matches[VARIABLE_PARAMS].substring(2).split('/-').forEach(function(param) {
+        regex.s = '(?:\\/(\\' + ((param === 'd')?'d':'w') + '+))?' + ((param === 's') ? '?': '') ; //make these lazy if string
         this.params.push(param == 'd');
       },this);
     }
