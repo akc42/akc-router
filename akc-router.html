@@ -160,9 +160,9 @@ Children.prototype.parseModel = function (regex) {
 
     //followed by the rest
     if(this.constructor.name === 'Router') {
-      regex.s = '\\/(?:';
+      regex.s = '\\/(?:(?:';
     } else {
-      regex.s = '(?:\\/';
+      regex.s = '(?:\\/(?:';
     }
 
     this.children.forEach(function(child){
@@ -181,10 +181,10 @@ Children.prototype.parseModel = function (regex) {
 
     if (routeFound == 0) {
       if(this.home) throw new Error('Cannot have a Home without some Routes');
-      regex.m = 5;      //take off '\/(?:' or '(?:\/'
+      regex.m = 8;      //take off '\/(?:(?:' or '(?:\/(?:'
     } else {
       regex.m = 1;      //take off '|'
-      regex.s = ')';
+      regex.s = '))';
       if(this.home){
         regex.s = '?';
       } else {
