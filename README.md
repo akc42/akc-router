@@ -186,7 +186,7 @@ it will be *Rejected* with an error containing the failure if the DOM wasn't cor
 
 ### The `<akc-router-selector>` Element
 
-This element is designed to site close to an `<iron-pages>` or derivative element below the first
+This element is designed to sit close to an `<iron-pages>` or derivative element below the first
 level in the hierarchy to provided the `iron-pages` `selector` property with the correct value. If
 it has routable children, it is expected that this `iron-pages` element should also one of its
 children.

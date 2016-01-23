@@ -81,12 +81,6 @@ function Router(element,that) {
   this.selector = that;
 };
 
-function Ordinary(element,children) {
-  Node.call(this,element);
-  this.children = children;
-};
-
-
 function Selector(element) {
   Children.call(this,element);
   this.selector = element;
@@ -105,15 +99,15 @@ function Home(element) {
   this.index = -1;
 };
 
-
-Node.prototype.parseDOM = function () {
-  var children = Polymer.dom(this.element).getEffectiveChildNodes()
+Node.prototype.parseDOM = function (node) {
+  var children = Polymer.dom(node).getEffectiveChildNodes()
   if (children.length > 0) {
     children.forEach(function(child){
       var childNode;
       if(child.tagName === 'AKC-ROUTE-SELECTOR') {
         childNode = new Selector(child);
         this.children.push(childNode);
+        childNode.parseDOM(child.root);
       } else {
         if(child.behaviors && child.behaviors.some(function(behaviour){return behaviour === AKC.Route})) {
           if (child.path == '/') {
@@ -127,19 +121,18 @@ Node.prototype.parseDOM = function () {
           }
           if(this.constructor.name === 'Home') throw new Error('Home nodes cannot have children');
           this.children.push(childNode);
+          childNode.parseDOM(child.root);
         } else {
-          childNode = new Ordinary(child,this.children);
+          if(child.root) {
+            this.parseDOM(child.root);
+          } else {
+            this.parseDOM(child);
+          }
         }
       }
-      childNode.parseDOM();
     },this);
   }
 };
-
-
-Ordinary.prototype = Object.create(Node.prototype);
-Ordinary.prototype.constructor = Ordinary;
-
 
 Children.prototype = Object.create(Node.prototype);
 Children.prototype.constructor = Children;
@@ -499,7 +492,7 @@ Polymer({
           events.route = this._routeChangeHandler;
           this.model = new Router(app,this);
           //Step 1 parse the DOM
-          this.model.parseDOM(); //Build the model first
+          this.model.parseDOM(app); //Build the model first
           this.model.parseModel(regex,false); //Then parse it
           if(this.model.children.length <= 0) throw new Error('No Routable Nodes');
           //Step 2 get the collected regex string and make an actual regex with it.

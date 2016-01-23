@@ -111,8 +111,10 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           r.domOK().then(function(){
             xh.fire('akc-route-change','/user/4/edit/warn/careful/serious');
           }).then(promiseTimeout.bind(null,10)).then(function(){
+console.log('testing r.selected ' + r.selected);
             expect(r.selected).to.equal(0);
             //expect(sub.selected).to.equal(0); dialog routed, so not set, so shouldn't expect it
+console.log('testing dsub selected ' + dsub.selected);
             expect(dsub.selected).to.equal(1)
             done();
           });
