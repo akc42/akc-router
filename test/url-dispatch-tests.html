@@ -44,6 +44,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     <!-- Step 1: import the element to test -->
     <link rel="import" href="../akc-router.html">
     <link rel="import" href="test-element.html">
+    <link rel="import" href="embedded-test-element.html">
   </head>
   <body>
 
@@ -63,22 +64,37 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         </x-tester>
         <x-tester id="xa" path="appointments/+s/-d"></x-tester>
         <x-tester id="xs" path="/search" dialog></x-tester>
+        <x-tester id="xr" path="/route">
+          <y-tester id="xrc" path="/complex">
+            <x-tester id="xrch" path="/"></x-tester>
+            <x-tester id="xrct" path="/tree"></x-tester>
+            <x-tester id="xrcm" path="/mount">
+              <x-tester id="xrcmu" path="/up"></x-tester>
+              <x-tester id="xrcmd" path="/down"></x-tester>
+            </x-tester>
+          </y-tester>
+          <x-tester id="xrh" path="/"></x-tester>
+        </x-tester>
         <x-tester id="x404" path="/404"></x-tester>
     </template>
   </test-fixture>
 
 
     <script>
-    function promiseTimeout (time) {
-      return new Promise(function(resolve,reject){
-        setTimeout(resolve,time,time);
-      });
-    };
-
+      function dispatch(r,url) {
+        return new Promise((accept,reject) => {
+          function Listener (e) {
+            this.removeEventListener('akc-route-changed',Listener)
+            accept(e.detail);
+          }
+          r.addEventListener('akc-route-changed',Listener);
+          r.fire('akc-route-change', url);
+        });
+      }
       describe('<akc-router> URL Dispaching Capability',function(){
         var r;
         var sandbox;
-        var xh,xu;
+        var xh,xu,xr;
 
         beforeEach(function(){
           sandbox = sinon.sandbox.create();
@@ -86,10 +102,12 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           r = document.getElementById('router');
           xh = document.getElementById('xh');
           xu = document.getElementById('xu');
+          xr = document.getElementById('xr');
         });
 
         afterEach(function(){
           sandbox.restore();
+          return dispatch(r,'/');
         });
         it('should initially dispatch to home', function(done) {
           sandbox.spy(xh ,'_routeChange');
@@ -111,10 +129,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         it('should dispatch to a specific url when requested',function(done){
           sandbox.spy(xu,'_routeChange');
           r.domOK().then(function(){
-            xh.fire('akc-route-change','/user/4/new');
-          }).then(function(){
-            return promiseTimeout(10);
-          }).then(function(){
+            return dispatch(r,'/user/4/new');
+          }).then(function(url){
             expect(xu._routeChange).to.have.been.called;
             expect(xu.params[0]).to.equal(4);
             expect(r.selected).to.equal(1);
@@ -122,15 +138,23 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
             done();
           });
         });
+        it('should fire akc-route-changed, with new url when requested', function(done) {
+          r.domOK().then(() => {
+            return dispatch(r,'/route/complex');
+          }).then( url => {
+            expect(url).to.equal('/route/complex');
+            done();
+          });
+        });
         it('should support routing to home',function(done){
           var xsh = document.getElementById('xsh');
           sandbox.spy(xsh,'_routeChange');
           r.domOK().then(function(){
-            xh.fire('akc-route-change','/user/1');
-          }).then(promiseTimeout.bind(null,10)).then(function(){
+            return dispatch(r,'/user/1');
+          }).then(function(){
             expect(xsh._routeChange).to.have.been.called;
-            xh.fire('akc-route-change','/');
-          }).then(promiseTimeout.bind(null,10)).then(function(){
+            return dispatch(r,'/');
+          }).then(function(){
             expect(r.url).to.equal('/');
             done();
           });
@@ -140,8 +164,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           var xs = document.getElementById('xs');
           sandbox.spy(xs,'_routeChange');
           r.domOK().then(function(){
-            xh.fire('akc-route-change','/user/5');
-          }).then(promiseTimeout.bind(null,10)).then(function(){
+            return dispatch(r,'/user/5');
+          }).then(function(){
             expect(xs._routeChange).to.have.been.called;
             expect(r.url).to.equal('/search');
             done();
@@ -150,24 +174,50 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
         it('should support a 404 element when unrecognsed URL is used',function(done){
           r.domOK().then(function(){
-            xh.fire('akc-route-change','/user/1/profile');
-          }).then(promiseTimeout.bind(null,10)).then(function(){
+            return dispatch(r,'/user/1/profile');
+          }).then(function(){
             expect(r.url).to.equal('/404');
             done();
           })
         });
         it('should restore state when browser back button is used',function(done){
           r.domOK().then(function(){
-            xh.fire('akc-route-change','/user/4/new');
-          }).then(promiseTimeout.bind(null,10)).then(function(t){
-            xu.fire('akc-route-change','/user/6');
-          }).then(promiseTimeout.bind(null,10)).then(function(t){
+            return dispatch(r,'/user/4/new');
+          }).then(function(){
+            return dispatch(r,'/user/6');
+          }).then(function(){
             expect(xu.params[0]).to.equal(6);
-            history.back();
-          }).then(promiseTimeout.bind(null,10)).then(function(){
+            return new Promise(accept => {
+              function l (e) {
+                r.removeEventListener('akc-route-changed',l);
+                accept(e.detail);
+              }
+              r.addEventListener('akc-route-changed',l);
+              history.back();
+            });
+          }).then(function(){
             expect(xu.params[0]).to.equal(4);
             expect(xu.state.uid).to.be.equal(4);
             expect(r.url).to.equal('/user/4/new');
+            done();
+          });
+        });
+        it('should support routing inside of custom element', function(done) {
+          var xrc,xrch,xrct2;
+          r.domOK().then(function() {
+            xrc = document.getElementById('xrc');
+            xrch = document.getElementById('xrch');
+            xrct2 = xrc.$.t2;
+            sandbox.spy(xr, '_routeChange');
+            sandbox.spy(xrc,'_routeChange');
+            sandbox.spy(xrch,'_routeChange');
+            sandbox.spy(xrct2,'_routeChange');
+            return dispatch(r, '/route/complex/test');
+          }).then(function() {
+            expect(xr._routeChange).to.have.been.called;
+            expect(xrc._routeChange).to.have.been.called;
+            expect(xrch._routeChange).to.have.been.called;
+            expect(xrct2._routeChange).to.have.been.called;
             done();
           });
         });

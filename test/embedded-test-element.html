@@ -1,0 +1,50 @@
+<!--
+@licence
+    Copyright (c) 2015 Alan Chandler, all rights reserved
+
+    This file is part of akc-router.
+
+    akc-router is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    akc-router is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with akc-router.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<link rel="import" href="../../polymer/polymer.html">
+<link rel="import" href="../../iron-pages/iron-pages.html">
+<link rel="import" href="../akc-route.html">
+<link rel="import" href="../akc-route-selector.html">
+
+<dom-module is="y-tester">
+  <template>
+      <akc-route-selector id="s1"></akc-route-selector>
+      <x-tester id="t1" path="/"></x-tester>
+      <x-tester id="t2" path="/test"></x-tester>
+      <akc-route-selector id="s2">
+        <content></content>
+      </akc-route-selector>
+  </template>
+</dom-module>
+<script>
+  Polymer({
+      is:'y-tester',
+      behaviors:[AKC.Route],
+      _routeChange:function(){
+        return new Promise(function(resolve,reject){
+          this.async(function(){
+            var state = 's1 = ' +this.$.s1.selected.toString() + ' s2 = ' + this.$.s2.selected.toString();
+            resolve(state);
+          },5);
+        }.bind(this));
+      }
+
+  });
+</script>

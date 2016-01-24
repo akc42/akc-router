@@ -44,6 +44,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     <!-- Step 1: import the element to test -->
     <link rel="import" href="../akc-router.html">
     <link rel="import" href="test-element.html">
+    <link rel="import" href="embedded-test-element.html">
   </head>
   <body>
 
@@ -67,22 +68,36 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
         </x-tester>
         <x-tester id="xh" path="/"></x-tester>
+        <x-tester id="xr" path="/route">
+          <y-tester id="xrc" path="/complex">
+            <x-tester id="xrch" path="/"></x-tester>
+            <x-tester id="xrct" path="/tree"></x-tester>
+          </y-tester>
+          <x-tester id="xrh" path="/"></x-tester>
+        </x-tester>
 
     </template>
   </test-fixture>
 
 
     <script>
-    function promiseTimeout (time) {
-      return new Promise(function(resolve,reject){
-        setTimeout(resolve,time,time);
-      });
-    };
+      function dispatch(r,url) {
+        return new Promise((accept,reject) => {
+          function Listener (e) {
+            this.removeEventListener('akc-route-changed',Listener)
+            accept(e.detail);
+          }
+          r.addEventListener('akc-route-changed',Listener);
+          r.fire('akc-route-change', url);
+        });
+      }
+
+
 
       describe('<akc-route-selector>Selection Capability',function(){
         var f,r,sub,dsub;
         var sandbox;
-        var xh,xu,xp,xsh,xsn;
+        var xh,xu,xp,xsh,xsn,xr,xrc,xrch,xrct;
 
         beforeEach(function(){
           sandbox = sinon.sandbox.create();
@@ -95,12 +110,13 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
         afterEach(function(){
           sandbox.restore();
+          return dispatch(r,'/');
         });
 
         it('should resolve home selectors',function(done){
           r.domOK().then(function(){
-            xh.fire('akc-route-change','/user/2');
-          }).then(promiseTimeout.bind(null,10)).then(function(){
+            return dispatch(r,'/user/2');
+          }).then(function(){
             expect(r.selected).to.equal(0);
             expect(sub.selected).to.equal(1);
             expect(dsub.selected).to.equal(0)
@@ -109,15 +125,26 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         });
         it('should resolve none home selectors',function(done){
           r.domOK().then(function(){
-            xh.fire('akc-route-change','/user/4/edit/warn/careful/serious');
-          }).then(promiseTimeout.bind(null,10)).then(function(){
-console.log('testing r.selected ' + r.selected);
+            return dispatch(r,'/user/4/edit/warn/careful/serious');
+          }).then(function(){
             expect(r.selected).to.equal(0);
             //expect(sub.selected).to.equal(0); dialog routed, so not set, so shouldn't expect it
-console.log('testing dsub selected ' + dsub.selected);
             expect(dsub.selected).to.equal(1)
             done();
           });
+        });
+        it('should resolve selectors with children in parallel to selectors without', function(done) {
+          xrc=document.getElementById('xrc');
+          r.domOK().then( function() {
+            return dispatch(r, '/route/complex/tree/test');
+          }).then(function() {
+            var s1 = xrc.$.s1;
+            var s2 = xrc.$.s2;
+            expect(s1.selected).to.equal(1);
+            expect(s2.selected).to.equal(1);
+            done();
+          });
+
         });
       });
     </script>
