@@ -72,18 +72,17 @@ function Node(element) {
 function Children(element) {
   Node.call(this,element);
   this.children = [];
+  this.selectors = [];
   this.home = false;
 };
 
 function Router(element,that) {
-  var baseComponent;
   Children.call(this,element);
-  this.selector = that;
+  this.selectors.push(that);
 };
 
 function Selector(element) {
   Children.call(this,element);
-  this.selector = element;
 };
 
 function Route(element) {
@@ -100,52 +99,54 @@ function Home(element) {
 };
 
 Node.prototype.parseDOM = function (node) {
+  var child,childNode;
   var children = Polymer.dom(node).getEffectiveChildNodes()
-  if (children.length > 0) {
-    children.forEach(function(child){
-      var childNode;
-      if(child.tagName === 'AKC-ROUTE-SELECTOR') {
-        childNode = new Selector(child);
+  for(child of children) {
+    if(child.tagName === 'AKC-ROUTE-SELECTOR') {
+      childNode = new Selector(child);
+      this.children.push(childNode);
+      childNode.parseDOM(child.root);
+    } else {
+      if(child.behaviors && child.behaviors.some(function(behaviour){return behaviour === AKC.Route})) {
+        if (child.path == '/') {
+          //before we add this node, lets just check there are no more homes already found
+          if(this.children.some(function(child){return child.constructor.name == 'Home'})) {
+            throw new Error('Two home nodes at the same level');
+          }
+          childNode = new Home(child);
+        } else {
+          childNode = new Route(child);
+        }
+        if(this.constructor.name === 'Home') throw new Error('Home nodes cannot have children');
         this.children.push(childNode);
         childNode.parseDOM(child.root);
       } else {
-        if(child.behaviors && child.behaviors.some(function(behaviour){return behaviour === AKC.Route})) {
-          if (child.path == '/') {
-            //before we add this node, lets just check there are no more homes already found
-            if(this.children.some(function(child){return child.constructor.name == 'Home'})) {
-              throw new Error('Two home nodes at the same level');
-            }
-            childNode = new Home(child);
-          } else {
-            childNode = new Route(child);
-          }
-          if(this.constructor.name === 'Home') throw new Error('Home nodes cannot have children');
-          this.children.push(childNode);
-          childNode.parseDOM(child.root);
+        if(child.root) {
+          this.parseDOM(child.root);
         } else {
-          if(child.root) {
-            this.parseDOM(child.root);
-          } else {
-            this.parseDOM(child);
-          }
+          this.parseDOM(child);
         }
       }
-    },this);
+    }
   }
 };
 
 Children.prototype = Object.create(Node.prototype);
 Children.prototype.constructor = Children;
 Children.prototype.parseModel = function (regex) {
+  var child;
   var selectedIndex =0;
   var routeFound = 0;
   //now we process the children
   if (this.children.length > 0){
    //We need to do all nodes in two passes - selectors first
-    this.children.forEach(function(child){
+    for(child of this.children) {
       if(child.constructor.name === 'Selector') {
         if (child.children.length > 0) {
+          child.selectors.push(child.element);
           child.parseModel(regex);
+        } else {
+          this.selectors.push(child.element);
         }
       } else {
         if (!child.element.dialog) {
@@ -156,16 +157,17 @@ Children.prototype.parseModel = function (regex) {
       if(child.constructor.name === 'Home') {
         this.home = child;
       }
-    },this);
-
+    }
     //followed by the rest
     if(this.constructor.name === 'Router') {
       regex.s = '\\/(?:(?:';
+    } else if (this.constructor.name === 'Selector') {
+      regex.s = '(?:(?:\\/(?:';
     } else {
       regex.s = '(?:\\/(?:';
     }
 
-    this.children.forEach(function(child){
+    for (child of this.children) {
       if(child.constructor.name == 'Route') {
         routeFound++;
         child.parsePath(regex); //limit ourselves to selectors
@@ -177,13 +179,20 @@ Children.prototype.parseModel = function (regex) {
         }
         regex.s = '|';
       }
-    },this);
+    }
 
     if (routeFound == 0) {
       if(this.home) throw new Error('Cannot have a Home without some Routes');
+      if (this.constructor.name === 'Selector') {
+        regex.m = 3;  //take off enough so next reduction removes the '(?:' put on first
+      }
       regex.m = 8;      //take off '\/(?:(?:' or '(?:\/(?:'
     } else {
       regex.m = 1;      //take off '|'
+      if (this.constructor
+        .name === 'Selector') {
+        regex.s = ')'
+      }
       regex.s = '))';
       if(this.home){
         regex.s = '?';
@@ -194,28 +203,33 @@ Children.prototype.parseModel = function (regex) {
   }
 };
 
-Children.prototype.dispatchChildren = function(matches,state,limited) {
+Children.prototype.dispatchChildren = function(matches,state) {
+  var child,selector;
   var statePromises = [];
   var routeState;
   var dispatchables = false;
   if(this.children.length == 0) return false;
 
   //Step1 - see if are any selectors and dispatch their children
-  this.children.forEach(function(child){
+  for (child of this.children) {
     if(child.constructor.name == 'Selector') {
-      routeState = child.dispatchChildren(matches,state,false);
+      routeState = child.dispatchChildren(matches,state);
       if (routeState) statePromises = statePromises.concat(routeState);
     } else {
       dispatchables = true;
     }
-  });
-  if(dispatchables && ! limited) {
+  }
+  if(dispatchables) {
     //Step2 - see if we have a match
     if(!this.children.some(function(child) {
       if(child.constructor.name == 'Route') {
         routeState = child.dispatch(matches,state);
         if (routeState) {
-          if (this.constructor.name !== 'Route' && !child.element.dialog) this.selector.selected = child.index;
+          if ( !child.element.dialog) {
+            for(selector of this.selectors) {
+              selector.selected = child.index;
+            }
+          }
           if(state) return true;  // we are on a replay, so don't collect state promises
           statePromises = statePromises.concat(routeState);
           return true;
@@ -227,7 +241,11 @@ Children.prototype.dispatchChildren = function(matches,state,limited) {
       if(this.home) {
         routeState =  this.home.dispatch(state);
         if(routeState) {
-          if (this.constructor.name !== 'Route' && !this.home.element.dialog) this.selector.selected = this.home.index;
+          if (!this.home.element.dialog) {
+            for (selector of this.selectors) {
+              selector.selected = this.home.index;
+            }
+          }
           return statePromises;
         }
         return false;
@@ -256,6 +274,7 @@ Selector.prototype.dispatch = function(matches,state){
 Route.prototype = Object.create(Children.prototype);
 Route.prototype.constructor = Route;
 Route.prototype.parsePath = function (regex) {
+  var param, params,action;
   if(pathMatcher.test(this.element.path)) {
     this.params = []; //We have a valid route, so we might as well initialise the params array
     var matches = pathMatcher.exec(this.element.path);
@@ -264,17 +283,19 @@ Route.prototype.parsePath = function (regex) {
     // we need one '(?:' for the entire route, including children, and one '(?:' for this route element
     regex.s = '(?:(' + matches[PATH_NAME] + ')';
     if(typeof matches[FIXED_PARAMS] !== 'undefined') {
-      matches[FIXED_PARAMS].substring(2).split('/+').forEach(function(param) {
+      params = matches[FIXED_PARAMS].substring(2).split('/+');
+      for(param of params) {
         regex.s = '\\/(\\' + ((param === 'd')?'d':'w') + '+)';
         this.params.push(param == 'd');
-      },this);
+      }
     }
     this.fixed = this.params.length;
     if(typeof matches[VARIABLE_PARAMS] !== 'undefined') {
-      matches[VARIABLE_PARAMS].substring(2).split('/-').forEach(function(param) {
+      params = matches[VARIABLE_PARAMS].substring(2).split('/-');
+      for (param of params) {
         regex.s = '(?:\\/(\\' + ((param === 'd')?'d':'w') + '+))?' + ((param === 's') ? '?': '') ; //make these lazy if string
         this.params.push(param == 'd');
-      },this);
+      }
     }
     regex.c = 1 + this.params.length;
     if(typeof matches[ACTION_NAME] !== 'undefined') {
@@ -285,14 +306,14 @@ Route.prototype.parsePath = function (regex) {
         this.actions = [];
         regex.s = '(?:\\/('
         regex.c = 1;
-        actions.forEach(function(action){
+        for (action of actions) {
           if ( action.length > 0) {
             regex.s = action + '|';
             this.actions.push(action);
           }
-        },this);
+        }
         regex.m = 1; //remove last '|'
-        regex.s = '))' + (this.hasNullAction?'??':''); //lazy match if optional (ie we will prefer a subsequent model)
+        regex.s = '))' + (this.hasNullAction? '??' : '' ); //lazy match if optional (ie we will prefer a subsequent model)
 
       }
     } else {
@@ -354,7 +375,7 @@ Route.prototype.dispatch = function(matches,state) {
     if (state) routeState = state.shift();
     routeState = this.element.routeSelected(params,actionValue,routeState);
     if (!state) statePromises.push(routeState);
-    routeState = this.dispatchChildren(matches,state,true);
+    routeState = this.dispatchChildren(matches,state);
     if (!state) {
       //only add last response back if there were some promises
       if(routeState) return statePromises.concat(routeState);
@@ -404,6 +425,9 @@ var events = (function(){
     set app(a) {
       target = a;
     },
+    get app() {
+      return target;
+    },
     set route (h) {
       r = h.bind(t);
       target.addEventListener('akc-route-change',routeChange);
@@ -452,6 +476,15 @@ Polymer({
     this.domPromise = new Promise(function(resolve,reject){
       this.domResolver = resolve;
       this.domRejector = reject;
+    }.bind(this));
+
+    this.initialDispatchHappened = new Promise(function(resolve,reject){
+      this.initialResolver = resolve;
+      this.initialRejector = reject;
+      //If dom fails, then this will also fail with similar error.
+      this.domPromise.catch(function(error) {
+        reject(error);
+      });
     }.bind(this));
 
 
@@ -527,18 +560,7 @@ Polymer({
           */
           this.domRejector(error);
         }
-        this.domPromise.then(function() {
-          return new Promise(function(accept,reject) {
-            var url;
-            try {
-              accept(regex.s);
-            } catch (error) {
-              reject(error);
-            }
-          });
-        })
-
-      });
+       });
     }
   },
   detached:function() {
@@ -547,40 +569,73 @@ Polymer({
       var a = events.route; //this removes handlers
       regex.c = 0; //and this resets regex
     }
-    this.domResolver();
+    this.domRejector(new Error('router detached'));
+    this.initialRejector(new Error('router detached'));
+
   },
   domOK: function() {
-    return this.domPromise;
+    return this.initialDispatchHappened;
   },
   _routeChangeHandler:function(state) {
-    var matches, statePromises;
-    if(this.regex.test(this.url)) { //check it was one we can recognise (strip base from it)
-      if(!state) {
-        history.pushState({},document.title,this.base + this.url); //push unless from popstate.
+    /*
+      We ensure the domOK promise is resolved before we actually do the dispatch in case someone has
+      reset the dom in the meantime
+    */
+    this.domPromise.then(function() {
+      var matches, statePromises;
+      if(this.regex.test(this.url)) { //check it was one we can recognise (strip base from it)
+        if(!state) {
+          history.pushState({},document.title,this.base + this.url); //push unless from popstate.
+        }
+        matches = this.regex.exec(this.url);
+        matches.shift();  //not interested in the first one as its just the url
+        statePromises = this.model.dispatchChildren(matches,state);
+        if(state) {
+          this.fire('akc-route-changed',this.url,{bubbles:false});
+        } else {
+          Promise.all(statePromises).then(function(states){
+            history.replaceState(states,document.title,this.base + this.url);
+            this.fire('akc-route-changed',this.url,{bubbles:false});
+            this.initialResolver(this.url);
+          }.bind(this),function(url){
+            this.url = url;
+            this._routeChangeHandler(false);
+          }.bind(this));
+        }
+      } else {
+        //First attempt to see if we could route to our page
+        if(!this.regex.test('/404')) throw new Error('Cannot match URL');
+        this.url = '/404';
+        this._routeChangeHandler(state);
       }
-      matches = this.regex.exec(this.url);
-      matches.shift();  //not interested in the first one as its just the url
-      statePromises = this.model.dispatchChildren(matches,state,false);
-      if(!state) {
-        Promise.all(statePromises).then(function(states){
-          history.replaceState(states,document.title,this.base + this.url);
-        }.bind(this),function(url){
-          this.url = url;
-          this._routeChangeHandler(false);
-        }.bind(this));
-      }
-    } else {
-      //First attempt to see if we could route to our page
-      if(!this.regex.test('/404')) throw new Error('Cannot match URL');
-      this.url = '/404';
-      this._routeChangeHandler(state);
-    }
+
+    }.bind(this));
   },
   pathname: function () {
     return window.location.pathname;
   },
   hash: function() {
     return window.location.hash
+  },
+  reset: function() {
+    this.domPromise = new Promise(function(accept,reject) {
+      this.async(function() {
+        var app = events.app;
+        regex.c = 0;  //resets the regex
+        var model = new Router(app,this);
+        try {
+          model.parseDOM(app);
+          model.parseModel(regex); //Then parse it
+          if(model.children.length <= 0) throw new Error('No Routable Nodes');
+          this.regex = new RegExp(regex.s,'i');
+          this.model = model;
+          accept(regex.s);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }.bind(this));
+    return this.domPromise;
   }
 });
 
