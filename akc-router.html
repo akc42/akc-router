@@ -545,6 +545,8 @@ Polymer({
                     throw new Error('We have been asked to route outside of our base location');
                   }
                   this.fire('akc-route-change',url.slice(this.base.length));
+                } else {
+                  this.fire('akc-route-change', url);
                 }
               }
               this.domResolver(regex.s);
